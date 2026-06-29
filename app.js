@@ -519,8 +519,7 @@ function viewBeschikbaar() {
     <button class="btn cta-besch" id="open-editor">
       <span class="cta-main">Beschikbaarheid opgeven</span>
       <span class="cta-sub">${ingevuld} van ${GOAL_WEEKS} weken vooruit · lastige diensten ${t.l}/${TARGET.lastig}</span>
-    </button>
-    <p class="demo-tag">Prototype · niets wordt echt opgeslagen</p>`;
+    </button>`;
 }
 
 /* ---- Beeldvullend full-screen systeem (beschikbaarheid én rode plekken) ---- */
@@ -575,7 +574,6 @@ function renderEditor() {
       <div class="weken-goal">
         <div class="row between">
           <b>${wekenIngevuld()} van ${GOAL_WEEKS} weken vooruit</b>
-          <span class="small muted">tik een week ↓</span>
         </div>
         <div class="wkpills">${pillen}</div>
       </div>
@@ -676,15 +674,13 @@ function rodeInner(p) {
         <div style="font-size:15px; font-weight:700; margin-bottom:4px">Jij hebt je beschikbaarheid al top op orde 💪</div>
         <div class="small muted">We hoeven jou hier niets te vragen. Wil je toch een keer bijspringen? Hieronder staan de open diensten.</div>
       </div>
-      ${open.length ? open.map(o => shift(o, false)).join('') : '<p class="muted small center">Geen open diensten.</p>'}
-      <p class="demo-tag">Prototype · diensten zijn fictief</p>`;
+      ${open.length ? open.map(o => shift(o, false)).join('') : '<p class="muted small center">Geen open diensten.</p>'}`;
   }
 
   return `
     <div class="screen-title">Rode plekken pakken</div>
     ${open.length ? `<div class="hot-ribbon">🔥 ${open.length} open dienst(en) — help het team en pak er één</div>` : '<p class="muted small">Op dit moment geen open diensten. 👍</p>'}
-    ${mine.map(o => shift(o, true)).join('')}
-    <p class="demo-tag">Prototype · diensten zijn fictief</p>`;
+    ${mine.map(o => shift(o, true)).join('')}`;
 }
 
 /* ---- 8c. Wanneer ingeroosterd ---- */
@@ -709,10 +705,6 @@ function viewIngeroosterd() {
       <h3>Daarna</h3>
       <div class="timeline">
         ${rest || '<p class="muted small">Geen verdere diensten ingepland.</p>'}
-        <div class="tl-item dim">
-          <div class="d muted">Meer beschikbaarheid = meer diensten</div>
-          <div class="t">Geef je beschikbaarheid op om hier voller te staan</div>
-        </div>
       </div>
     </div>`;
 }
@@ -781,8 +773,7 @@ function viewOverig() {
       <div class="badges">${badges}</div>
     </div>
 
-    <div class="menu-list">${items}</div>
-    <p class="demo-tag">Prototype · menu-items zijn nog niet actief</p>`;
+    <div class="menu-list">${items}</div>`;
 }
 
 /* ---- 8f. Familie & Toppers (de drie gradaties — geen plek/punten) ---- */
@@ -823,22 +814,18 @@ function viewFamilie() {
 
     <div class="card">
       <h3>💪 Onze toppers</h3>
-      <p class="small muted" style="margin:-4px 0 10px">Veel beschikbaar én trouw op de lastige diensten.</p>
       <div class="fam-chips">${toppersHtml || '<span class="muted small">Nog geen toppers deze week.</span>'}</div>
     </div>
 
     <div class="card">
       <h3>🌱 Onze newbees</h3>
-      <p class="small muted" style="margin:-4px 0 12px">De eerste 13 weken trekken we ze voor, zodat ze echt in de familie komen.</p>
       ${newbeesHtml || '<span class="muted small">Geen newbees op dit moment.</span>'}
     </div>
 
     <div class="card">
       <h3>💚 Groene namen</h3>
-      <p class="small muted" style="margin:-4px 0 10px">Mensen die het gewoon goed doen. Bedankt!</p>
       <div class="green-names">${groenenHtml || '<span class="muted small">—</span>'}</div>
-    </div>
-    <p class="demo-tag">Prototype · namen zijn fictief</p>`;
+    </div>`;
 }
 
 /* =====================================================================
