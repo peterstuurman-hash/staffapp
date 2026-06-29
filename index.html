@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="nl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <title>Branding Staff — prototype</title>
+    <link rel="stylesheet" href="./styles.css?v=1" />
+  </head>
+  <body>
+    <!-- Telefoon-frame zodat het op desktop ook als app aanvoelt -->
+    <div class="phone">
+      <!-- Persistente status-balk (blijft staan op elk scherm) -->
+      <header id="status-bar" class="statusbar" aria-live="polite"></header>
+
+      <!-- Inhoud van het gekozen scherm -->
+      <main id="view" class="view"></main>
+
+      <!-- Onderbalk met de 5 hoofdkeuzes (Uber-stijl) -->
+      <nav id="tabbar" class="tabbar"></nav>
+    </div>
+
+    <!-- Demo-knop: wissel van medewerker om alle statussen te zien -->
+    <button id="persona-fab" class="persona-fab" title="Wissel demo-medewerker">👤</button>
+
+    <!-- Onderschuivend paneel (voor status-details, persona-keuze, etc.) -->
+    <div id="sheet-backdrop" class="sheet-backdrop hidden">
+      <div id="sheet" class="sheet" role="dialog" aria-modal="true"></div>
+    </div>
+
+    <script src="./app.js?v=1"></script>
+  </body>
+</html>

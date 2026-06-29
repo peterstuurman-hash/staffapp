@@ -1,0 +1,773 @@
+/* =======================================================================
+   Branding Staff — prototype (alleen mock-data, geen backend)
+   -----------------------------------------------------------------------
+   Doel: laten zien hoe een vernieuwde staff-app kan voelen —
+   modern, app-gevoel (Uber-stijl), met een PERSISTENTE statusbalk die
+   meebeweegt met de "flag" van de medewerker, en gamificatie-haakjes.
+
+   Alles draait in de browser. Wissel rechtsonder van demo-medewerker
+   om elke status te zien.
+   ======================================================================= */
+
+/* ---------------------------------------------------------------------
+   1. STATUS-DEFINITIES  (gebaseerd op de flag-legenda van de business)
+   --------------------------------------------------------------------- */
+const STATUS = {
+  topper_zat: {
+    theme: 't-green', icons: '💪🕺', badge: 'Topper +',
+    title: 'Jij werkt écht top — óók op zaterdagavond!',
+    sub: 'Je bent goud waard voor het team 🙌', level: 5,
+  },
+  topper: {
+    theme: 't-green', icons: '💪', badge: 'Topper',
+    title: 'Jij bent echt een topper',
+    sub: 'Bedankt voor je topbeschikbaarheid', level: 4,
+  },
+  groen: {
+    theme: 't-green', icons: '✅', badge: 'Op koers',
+    title: 'Bedankt voor je beschikbaarheid',
+    sub: 'Lekker bezig — zo blijf je groen', level: 3,
+  },
+  bijna_blauw: {
+    theme: 't-alert', icons: '🟢❗', badge: 'Mayday',
+    title: 'Geef je beschikbaarheid z.s.m. op',
+    sub: 'Anders word je binnenkort blauw', level: 2,
+    alert: 'Mayday! Je staat op het punt blauw te worden',
+  },
+  blauw: {
+    theme: 't-blue', icons: '💧', badge: 'Te weinig',
+    title: 'Je hebt te weinig beschikbaarheid',
+    sub: 'Geef meer dagen op om weer groen te worden', level: 1,
+  },
+  newbee: {
+    theme: 't-sunrise', icons: '🌱', badge: 'Newbee',
+    title: 'Welkom in de familie!',
+    sub: 'Samen bouwen we je eerste 13 weken op', level: 0, newbee: true,
+  },
+  vakantie: {
+    theme: 't-purple', icons: '🏖️', badge: 'Bijna vrij',
+    title: 'Bijna op vakantie',
+    sub: 'Geniet straks — je hebt het verdiend', level: null,
+  },
+  rpp: {
+    theme: 't-gold', icons: '⭐', badge: 'Team',
+    title: 'Branding team member',
+    sub: 'Fijn dat je af en toe bijspringt', level: null,
+  },
+  dnd: {
+    theme: 't-slate', icons: '🌙', badge: 'Sabbatical',
+    title: 'Branding team member on a sabbatical',
+    sub: 'Tot snel weer! 👋', level: null,
+  },
+};
+
+/* ---------------------------------------------------------------------
+   2a. FLAG-BEREKENING  (de "echte" regels uit jullie rapporten)
+   -----------------------------------------------------------------------
+   Bepaalt de status uit ruwe cijfers, i.p.v. een hardgecodeerd label.
+   Gebaseerd op de status-legenda:
+   - groen  = goede beschikbaarheid (≥12 dagen & ≥4 lastige diensten, komende 4 wkn)
+   - blauw  = te weinig beschikbaarheid
+   - 💪 topper = >8 lastige diensten in 4 wkn  · 🕺 = ook op za-avond gewerkt
+   - ❗ bijna-blauw = wél groen, maar géén beschikbaarheid voor het komende rooster
+   - newbee = eerste 13 weken in dienst · DND/RPP = occasioneel (geen alert)
+   --------------------------------------------------------------------- */
+const REGELS = { groenDagen: 12, groenDiensten: 4, topperDiensten: 8 };
+
+function computeStatus(p) {
+  if (p.dnd)            return { key: 'dnd',      reason: 'Handmatig op sabbatical gezet (DND).' };
+  if (p.occasional)     return { key: 'rpp',      reason: 'Occasionele medewerker (RPP) — geen beschikbaarheids-alert.' };
+  if (p.vakantieOver != null)
+                        return { key: 'vakantie', reason: `Geaccordeerde vakantie over ${p.vakantieOver} dagen.` };
+  if (p.tenureWeken != null && p.tenureWeken <= 13)
+                        return { key: 'newbee',   reason: `In dienst sinds ${p.tenureWeken} wkn — binnen de eerste 13 weken.` };
+
+  const groen = p.dagen >= REGELS.groenDagen && p.diensten >= REGELS.groenDiensten;
+  if (!groen) return { key: 'blauw',
+    reason: `Te weinig: ${p.dagen} dagen / ${p.diensten} lastige diensten (groen vanaf ${REGELS.groenDagen} dagen & ${REGELS.groenDiensten} diensten).` };
+
+  if (p.diensten > REGELS.topperDiensten) {
+    return p.zaterdagGewerkt
+      ? { key: 'topper_zat', reason: `${p.diensten} lastige diensten (>${REGELS.topperDiensten}) én op zaterdagavond gewerkt.` }
+      : { key: 'topper',     reason: `${p.diensten} lastige diensten in 4 wkn (>${REGELS.topperDiensten}).` };
+  }
+  if (!p.roosterBeschikbaar)
+    return { key: 'bijna_blauw', reason: 'Groen, maar nog géén beschikbaarheid voor het nog te maken rooster.' };
+  return { key: 'groen', reason: `Goede beschikbaarheid: ${p.dagen} dagen, ${p.diensten} lastige diensten.` };
+}
+
+/* ---------------------------------------------------------------------
+   2b. DEMO-MEDEWERKERS  (ruwe cijfers; de status wordt berekend)
+   --------------------------------------------------------------------- */
+const PERSONAS = [
+  { id: 'sophie', naam: 'Sophie de Wit', rol: 'Kelner · Branding', avatar: '😎',
+    punten: 1840, xp: 0.78, streak: 11, dagen: 18, diensten: 9, zaterdagen: 6,
+    zaterdagGewerkt: true, roosterBeschikbaar: true, tenureWeken: 64 },
+  { id: 'daan', naam: 'Daan Hulhoven', rol: 'Leidinggevende · Branding', avatar: '🧑‍🍳',
+    punten: 1520, xp: 0.62, streak: 7, dagen: 15, diensten: 9, zaterdagen: 0,
+    zaterdagGewerkt: false, roosterBeschikbaar: true, tenureWeken: 82 },
+  { id: 'pien', naam: 'Pien Duijndam', rol: 'Kelner · Branding', avatar: '🙂',
+    punten: 760, xp: 0.40, streak: 4, dagen: 12, diensten: 4, zaterdagen: 2,
+    zaterdagGewerkt: true, roosterBeschikbaar: true, tenureWeken: 38 },
+  { id: 'jesse', naam: 'Jesse Plas', rol: 'Kelner · Branding', avatar: '😅',
+    punten: 610, xp: 0.32, streak: 1, dagen: 13, diensten: 5, zaterdagen: 1,
+    zaterdagGewerkt: true, roosterBeschikbaar: false, tenureWeken: 27, blauwOver: true },
+  { id: 'lisa', naam: 'Lisa Hellemans', rol: 'Kelner · Branding', avatar: '😐',
+    punten: 180, xp: 0.10, streak: 0, dagen: 2, diensten: 0, zaterdagen: 0,
+    zaterdagGewerkt: false, roosterBeschikbaar: false, tenureWeken: 51 },
+  { id: 'milou', naam: 'Milou Kaspers', rol: 'Kelner · Branding', avatar: '🌟',
+    punten: 240, xp: 0.30, streak: 3, dagen: 7, diensten: 2, zaterdagen: 1,
+    zaterdagGewerkt: true, roosterBeschikbaar: true, tenureWeken: 3, newbeeWeek: 3 },
+  { id: 'phil', naam: 'Phil Groenewoud', rol: 'Leidinggevende · Branding', avatar: '🕶️',
+    punten: 1340, xp: 0.55, streak: 6, dagen: 14, diensten: 7, zaterdagen: 4,
+    zaterdagGewerkt: true, roosterBeschikbaar: true, tenureWeken: 73, vakantieOver: 5 },
+  { id: 'rob', naam: 'Rob Pieters', rol: 'Occasioneel · Branding', avatar: '👨‍🦳',
+    punten: 90, xp: 0, streak: 0, dagen: 0, diensten: 0, zaterdagen: 0, occasional: true },
+  { id: 'nadia', naam: 'Nadia el Amrani', rol: 'Sabbatical · Branding', avatar: '🌙',
+    punten: 0, xp: 0, streak: 0, dagen: 0, diensten: 0, zaterdagen: 0, dnd: true },
+];
+// Bereken en bevries de status + reden voor elke medewerker
+PERSONAS.forEach(p => { const c = computeStatus(p); p.status = c.key; p.statusReason = c.reason; });
+
+/* Extra teamleden (alleen voor het Familie-/leaderboard-scherm, niet in de switcher) */
+const EXTRA_TEAM = [
+  { naam: 'Teije van Schaik', status: 'topper_zat', punten: 1690 },
+  { naam: 'Chya Saleh',       status: 'topper_zat', punten: 1410 },
+  { naam: 'Lieke van Zaanen', status: 'groen',      punten: 900 },
+  { naam: 'Dominique vd Burg',status: 'groen',      punten: 820 },
+  { naam: 'Fleur Janssen',    status: 'newbee',     punten: 480, newbeeWeek: 8 },
+  { naam: 'Sven Bakker',      status: 'newbee',     punten: 120, newbeeWeek: 1 },
+];
+
+/* ---------------------------------------------------------------------
+   2c. AFTELKLOK  ("over X dagen en Y uur en Z min word jij blauw")
+   --------------------------------------------------------------------- */
+const APP_START = Date.now();
+// Deadline = nu + 6 dagen, 21 uur en 5 minuten (telt live af)
+const BLAUW_DEADLINE = APP_START + ((6 * 24 + 21) * 3600 + 5 * 60) * 1000;
+
+function countdownSegs(ms) {
+  if (ms <= 0) return `<span class="cd-now">Je bent nu blauw 💧 — geef snel op!</span>`;
+  const s = Math.floor(ms / 1000);
+  const d = Math.floor(s / 86400);
+  const h = Math.floor((s % 86400) / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  const seg = (v, l) => `<span><b>${String(v).padStart(2, '0')}</b>${l}</span>`;
+  return seg(d, 'dagen') + seg(h, 'uur') + seg(m, 'min') + seg(sec, 'sec');
+}
+
+// Eén timer die elke seconde de aftelklok bijwerkt (als die in beeld is)
+function startTicker() {
+  setInterval(() => {
+    const el = document.getElementById('cd-segs');
+    if (el) el.innerHTML = countdownSegs(BLAUW_DEADLINE - Date.now());
+  }, 1000);
+}
+
+/* ---------------------------------------------------------------------
+   3. APP-STATE
+   --------------------------------------------------------------------- */
+const state = {
+  personaIx: 0,
+  tab: 'beschikbaar',
+  weekOffset: 0,
+  rosterDay: 0,        // 0 = maandag
+  // beschikbaarheid die de gebruiker aanvinkt (per weekOffset een Set van dagindexen)
+  beschikbaar: {},
+  grabbed: new Set(),  // gepakte rode plekken
+};
+
+function persona() { return PERSONAS[state.personaIx]; }
+function statusOf(p) { return STATUS[p.status]; }
+
+/* ---------------------------------------------------------------------
+   4. MOCK-DATA voor de schermen
+   --------------------------------------------------------------------- */
+const DAGEN = ['MA', 'DI', 'WO', 'DO', 'VR', 'ZA', 'ZO'];
+const DAGEN_LANG = ['Maandag', 'Dinsdag', 'Woensdag', 'Donderdag', 'Vrijdag', 'Zaterdag', 'Zondag'];
+
+// Open diensten ("rode plekken")
+const RODE_PLEKKEN = [
+  { dag: 'Za', datum: '05 jul', rol: 'Kelner', tijd: '17:00 – sluit', zaak: 'Branding', bonus: 75, hot: true },
+  { dag: 'Vr', datum: '04 jul', rol: 'Kelner', tijd: '16:30 – sluit', zaak: 'Branding', bonus: 50, hot: true },
+  { dag: 'Zo', datum: '06 jul', rol: 'Runner', tijd: '12:00 – 18:00', zaak: 'Hippiefish', bonus: 40, hot: false },
+  { dag: 'Wo', datum: '02 jul', rol: 'Kelner', tijd: '11:00 – 17:00', zaak: 'Branding', bonus: 25, hot: false },
+];
+
+// Jouw komende diensten
+const MIJN_DIENSTEN = [
+  { dag: 'Maandag 30 jun', tijd: '10:00 – sluit', rol: 'Kelner', zaak: 'Branding', soon: true },
+  { dag: 'Donderdag 03 jul', tijd: '17:00 – sluit', rol: 'Kelner', zaak: 'Branding' },
+  { dag: 'Zaterdag 05 jul', tijd: '16:30 – sluit', rol: 'Kelner', zaak: 'Branding' },
+];
+
+// Teamrooster per dag (zoals huidige app) — vereenvoudigd
+const ROOSTER = {
+  0: [
+    { tijd: '10:00', uit: 'Sluit', naam: 'Daan Hulhoven', fn: 'LG', kl: 'green', ic: '💪' },
+    { tijd: '16:30', uit: 'Sluit', naam: 'Phil Groenewoud', fn: 'LG', kl: 'blue', ic: '' },
+    { tijd: '08:00', uit: 'Sluit', naam: 'Teije van Schaik', fn: 'Kelner', kl: 'green', ic: '💪🕺' },
+    { tijd: '11:00', uit: '17:00', naam: 'Pien Duijndam', fn: 'Kelner', kl: 'green', ic: '' },
+    { tijd: '12:00', uit: 'Sluit', naam: 'Lisa Hellemans', fn: 'Kelner', kl: 'blue', ic: '🔴' },
+    { tijd: '12:30', uit: 'Sluit', naam: 'Dominique vd Burg', fn: 'Kelner', kl: 'green', ic: '' },
+    { tijd: '13:00', uit: 'Sluit', naam: 'Chya Saleh', fn: 'Kelner', kl: 'green', ic: '💪🕺' },
+    { tijd: '17:00', uit: 'Sluit', naam: 'Milou Kaspers', fn: 'Kelner', kl: 'green', ic: '🌱' },
+  ],
+};
+function roosterVoor(d) {
+  // hergebruik dag 0 met kleine variatie zodat elke dag gevuld is
+  const base = ROOSTER[0];
+  if (d === 0) return base;
+  return base.slice(0, 8 - (d % 4)).map((r, i) => ({ ...r, naam: r.naam }));
+}
+
+// "Overig"-menu (alle subs uit het oude hoofdmenu)
+const OVERIG = [
+  { ic: '⏱️', l: 'Gewerkte uren' },
+  { ic: '🌴', l: 'Vakantie aanvragen' },
+  { ic: '🤝', l: 'Aangeboden diensten', badge: '4' },
+  { ic: '📋', l: 'Eigen diensten' },
+  { ic: '👤', l: 'Mijn profiel' },
+  { ic: '🔢', l: 'Mijn pincode' },
+  { ic: '📰', l: 'Nieuws' },
+  { ic: '📖', l: 'Handboek' },
+  { ic: '📞', l: 'Telefoonlijst' },
+  { ic: '🌐', l: 'Taal — NL / EN' },
+  { ic: '🚪', l: 'Log uit' },
+];
+
+// Prestatie-badges (gamification)
+function badgesVoor(p) {
+  return [
+    { e: '🔥', l: `${p.streak}-weken streak`, on: p.streak >= 3 },
+    { e: '💪', l: 'Topper', on: ['topper', 'topper_zat'].includes(p.status) },
+    { e: '🕺', l: 'Zaterdag-held', on: p.zaterdagen >= 4 },
+    { e: '🌱', l: 'Familielid', on: p.dagen >= 10 || p.status === 'newbee' },
+    { e: '⚡', l: 'Snelle pakker', on: p.diensten >= 5 },
+    { e: '🏆', l: '1500+ punten', on: p.punten >= 1500 },
+  ];
+}
+
+/* ---------------------------------------------------------------------
+   5. TABS (de 5 hoofdkeuzes, in de gevraagde volgorde)
+   --------------------------------------------------------------------- */
+const TABS = [
+  { id: 'beschikbaar', ic: '🗓️', l: 'Beschikbaar' },
+  { id: 'rode',        ic: '🔥', l: 'Rode plekken', dot: true },
+  { id: 'ingeroosterd',ic: '✅', l: 'Ingeroosterd' },
+  { id: 'rooster',     ic: '👥', l: 'Rooster' },
+  { id: 'overig',      ic: '⋯',  l: 'Overig' },
+];
+
+/* =====================================================================
+   6. RENDER — statusbalk
+   ===================================================================== */
+function renderStatus() {
+  const p = persona();
+  const s = statusOf(p);
+  const bar = document.getElementById('status-bar');
+  bar.className = 'statusbar ' + s.theme;
+
+  const xpBlock = (s.level !== null) ? `
+    <div class="sb-xp">
+      <div class="sb-xp-track"><div class="sb-xp-fill" style="width:${Math.round(p.xp * 100)}%"></div></div>
+      <div class="sb-xp-meta"><span>Level ${s.level} · ${p.punten} pnt</span><span>🔥 ${p.streak} wkn streak</span></div>
+    </div>` : '';
+
+  // "Bijna blauw" krijgt een live aftelklok i.p.v. een simpele chip
+  const alertChip = (s.alert && p.blauwOver)
+    ? `<div class="cdbox">
+         <div class="cd-title">⏳ Aftelklok — dan word je <b>blauw</b></div>
+         <div class="cd-segs" id="cd-segs">${countdownSegs(BLAUW_DEADLINE - Date.now())}</div>
+       </div>`
+    : (s.alert ? `<div class="sb-alertchip">⚠️ ${s.alert}</div>` : '');
+
+  let msg = `
+    <div class="sb-msg">
+      <div class="sb-icons">${s.icons}</div>
+      <div>
+        <div class="sb-text">${s.title}</div>
+        <div class="sb-sub">${s.sub}</div>
+      </div>
+    </div>${alertChip}`;
+
+  // Newbee krijgt een familie-voortgang i.p.v. XP-level
+  if (s.newbee) {
+    const wk = p.newbeeWeek || 1;
+    msg += `
+      <div class="sb-xp">
+        <div class="sb-xp-track"><div class="sb-xp-fill" style="width:${Math.round((wk / 13) * 100)}%"></div></div>
+        <div class="sb-xp-meta"><span>Week ${wk} van 13 in de familie</span><span>nog ${13 - wk} weken</span></div>
+      </div>`;
+  }
+
+  bar.innerHTML = `
+    <div class="sb-top">
+      <div class="sb-avatar">${p.avatar}</div>
+      <div class="sb-id">
+        <div class="sb-name">${p.naam}</div>
+        <div class="sb-role">${p.rol}</div>
+      </div>
+      <div class="sb-badge">${s.icons.slice(0, 2)} ${s.badge}</div>
+    </div>
+    ${msg}
+    ${s.newbee ? '' : xpBlock}
+    <div class="sb-chev">tik voor details ⌄</div>`;
+
+  bar.onclick = openStatusSheet;
+}
+
+/* =====================================================================
+   7. RENDER — tabbar
+   ===================================================================== */
+// Sub-schermen (geen eigen tab) vallen onder een hoofd-tab voor de markering
+const SUBSCREEN_PARENT = { familie: 'overig' };
+
+function renderTabs() {
+  const nav = document.getElementById('tabbar');
+  const active = TABS.some(t => t.id === state.tab) ? state.tab : (SUBSCREEN_PARENT[state.tab] || state.tab);
+  nav.innerHTML = TABS.map(t => `
+    <button class="tab ${active === t.id ? 'on' : ''}" data-tab="${t.id}">
+      ${t.dot && hasRode() ? '<span class="dot"></span>' : ''}
+      <span class="ti">${t.ic}</span>
+      <span class="tl">${t.l}</span>
+    </button>`).join('');
+  nav.querySelectorAll('.tab').forEach(b => b.onclick = () => go(b.dataset.tab));
+}
+function hasRode() { return RODE_PLEKKEN.some(r => !isGrabbed(r)); }
+function isGrabbed(r) { return state.grabbed.has(r.dag + r.datum + r.rol); }
+
+/* =====================================================================
+   8. RENDER — schermen
+   ===================================================================== */
+function renderView() {
+  const v = document.getElementById('view');
+  v.scrollTop = 0;
+  v.innerHTML = ({
+    beschikbaar: viewBeschikbaar,
+    rode: viewRode,
+    ingeroosterd: viewIngeroosterd,
+    rooster: viewRooster,
+    overig: viewOverig,
+    familie: viewFamilie,
+  }[state.tab] || viewBeschikbaar)();
+  wireView();
+}
+
+/* ---- 8a. Beschikbaarheid opgeven ---- */
+function viewBeschikbaar() {
+  const p = persona();
+  const wk = 29 + state.weekOffset;
+  const sel = state.beschikbaar[state.weekOffset] || new Set();
+  const doel = 5;
+  const goalTxt = sel.size >= doel
+    ? `Top! ${sel.size} dagen deze week — je houdt je groen 💚`
+    : `Nog ${doel - sel.size} dag(en) tot je weekdoel`;
+
+  const cells = DAGEN.map((d, i) => {
+    const on = sel.has(i);
+    const wknd = i >= 5;
+    return `
+      <div class="daycell ${on ? 'on' : ''} ${wknd ? 'wknd' : ''}" data-day="${i}">
+        <div class="dn">${d}</div>
+        <div class="dd">${String(13 + i).padStart(2, '0')}/07</div>
+        <div class="dt">${on ? '09:00–20:00' : ''}</div>
+      </div>`;
+  }).join('');
+
+  return `
+    <div class="screen-title">Beschikbaarheid opgeven</div>
+    <p class="screen-lead">Het belangrijkste wat je doet. Tik de dagen aan dat je kunt werken.</p>
+
+    <div class="goal">
+      <div class="goal-emoji">🎯</div>
+      <div class="goal-txt">
+        <b>${goalTxt}</b>
+        <span>Hoe meer je opgeeft, hoe hoger je punten & level</span>
+        <div class="progress"><i style="width:${Math.min(100, (sel.size / doel) * 100)}%"></i></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="weeknav">
+        <button data-wk="-1">‹</button>
+        <span class="wk">Week ${wk} · 13–19 jul</span>
+        <button data-wk="1">›</button>
+      </div>
+      <div class="daygrid">${cells}</div>
+      <p class="small muted center" style="margin:12px 0 0">Tik een dag aan/uit · standaardtijd 09:00–20:00</p>
+    </div>
+
+    <button class="btn btn-primary btn-block" id="save-besch">Opslaan & doorkopiëren →</button>
+    <p class="demo-tag">Prototype · niets wordt echt opgeslagen</p>`;
+}
+
+/* ---- 8b. Rode plekken pakken ---- */
+function viewRode() {
+  const open = RODE_PLEKKEN.filter(r => !isGrabbed(r));
+  const items = RODE_PLEKKEN.map((r, i) => {
+    const grabbed = isGrabbed(r);
+    return `
+      <div class="shift" style="${grabbed ? 'opacity:.5' : ''}">
+        <div class="when"><b>${r.dag}</b><span>${r.datum}</span></div>
+        <div class="info">
+          <b>${r.rol} · ${r.zaak}</b>
+          <div class="meta">${r.tijd}</div>
+          <span class="bonus">⚡ +${r.bonus} bonuspunten</span>
+        </div>
+        <div class="grab">
+          ${grabbed
+            ? '<span class="btn" style="background:#e7f3e8;color:#3f7d45">✓ Gepakt</span>'
+            : `<button class="btn btn-primary" data-grab="${i}">Pak</button>`}
+        </div>
+      </div>`;
+  }).join('');
+
+  return `
+    <div class="screen-title">Rode plekken pakken</div>
+    <p class="screen-lead">Open diensten die nog gevuld moeten worden. Wie snel is, scoort de bonus.</p>
+    <div class="hot-ribbon">🔥 ${open.length} open dienst(en) — pak er één en verdien bonuspunten</div>
+    ${items}
+    <p class="demo-tag">Prototype · bonuspunten zijn fictief</p>`;
+}
+
+/* ---- 8c. Wanneer ingeroosterd ---- */
+function viewIngeroosterd() {
+  const first = MIJN_DIENSTEN[0];
+  const rest = MIJN_DIENSTEN.slice(1).map(d => `
+    <div class="tl-item">
+      <div class="d">${d.dag}</div>
+      <div class="t">${d.tijd} · ${d.rol} · ${d.zaak}</div>
+    </div>`).join('');
+
+  return `
+    <div class="screen-title">Wanneer ben ik ingeroosterd?</div>
+    <p class="screen-lead">Jouw eigen diensten in één oogopslag.</p>
+
+    <div class="next-shift">
+      <div class="lbl">Eerstvolgende dienst</div>
+      <div class="big">${first.dag}</div>
+      <div class="cd">${first.tijd} · ${first.rol} · ${first.zaak}</div>
+    </div>
+
+    <div class="card">
+      <h3>Daarna</h3>
+      <div class="timeline">
+        ${rest || '<p class="muted small">Geen verdere diensten ingepland.</p>'}
+        <div class="tl-item dim">
+          <div class="d muted">Meer beschikbaarheid = meer diensten</div>
+          <div class="t">Geef je beschikbaarheid op om hier voller te staan</div>
+        </div>
+      </div>
+    </div>`;
+}
+
+/* ---- 8d. Rooster (team) ---- */
+function viewRooster() {
+  const data = [22, 23, 24, 25, 26, 27, 28];
+  const strip = DAGEN.map((d, i) => `
+    <div class="d ${state.rosterDay === i ? 'on' : ''}" data-rd="${i}">
+      ${d}<b>${data[i]}</b>
+    </div>`).join('');
+
+  const rows = roosterVoor(state.rosterDay).map(r => `
+    <div class="roster-row">
+      <div class="time"><b>${r.tijd}</b><span>${r.uit}</span></div>
+      <div class="ava">${r.naam.split(' ')[0][0]}</div>
+      <div class="nm"><b class="${r.kl}">${r.naam}</b><div class="fn">${r.fn}</div></div>
+      <div class="ic">${r.ic}</div>
+    </div>`).join('');
+
+  return `
+    <div class="screen-title">Rooster</div>
+    <p class="screen-lead">${DAGEN_LANG[state.rosterDay]} ${data[state.rosterDay]} juni · Branding</p>
+    <div class="daystrip">${strip}</div>
+    <div class="card flat" style="padding:6px 14px">${rows}</div>`;
+}
+
+/* ---- 8e. Overig (alle subs) ---- */
+function viewOverig() {
+  const p = persona();
+  const badges = badgesVoor(p).map(b => `
+    <div class="badge-chip ${b.on ? '' : 'locked'}">
+      <div class="e">${b.e}</div><div class="l">${b.l}</div>
+    </div>`).join('');
+
+  const items = OVERIG.map((m, i) => `
+    <div class="menu-item" data-overig="${i}">
+      <span class="mi-ic">${m.ic}</span>
+      <span class="mi-l">${m.l}</span>
+      ${m.badge ? `<span class="mi-badge">${m.badge}</span>` : ''}
+      <span class="mi-chev">›</span>
+    </div>`).join('');
+
+  return `
+    <div class="screen-title">Overig</div>
+    <p class="screen-lead">Alles wat je verder nodig hebt.</p>
+
+    <div class="stat-grid">
+      <div class="stat"><b>${p.punten}</b><span>punten</span></div>
+      <div class="stat"><b>${p.dagen}</b><span>dagen besch.</span></div>
+      <div class="stat"><b>${p.streak}🔥</b><span>weken streak</span></div>
+    </div>
+
+    <div class="card" id="go-familie" style="cursor:pointer; background:linear-gradient(135deg,#fff7e8,#ffeccf); border-color:#f0d79a">
+      <div class="row">
+        <div style="font-size:30px">🏆</div>
+        <div style="flex:1">
+          <b>Familie &amp; Toppers</b>
+          <div class="small muted">Leaderboard, onze newbees en wie het goed doet</div>
+        </div>
+        <div class="mi-chev" style="font-size:22px">›</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Jouw prestaties</h3>
+      <div class="badges">${badges}</div>
+    </div>
+
+    <div class="menu-list">${items}</div>
+    <p class="demo-tag">Prototype · menu-items zijn nog niet actief</p>`;
+}
+
+/* ---- 8f. Familie & Toppers (de drie gradaties + leaderboard) ---- */
+function viewFamilie() {
+  const me = persona();
+  // Volledige teamlijst (demo-medewerkers + extra leden), op punten gesorteerd
+  const team = [
+    ...PERSONAS.map(p => ({ naam: p.naam, status: p.status, punten: p.punten, newbeeWeek: p.newbeeWeek, you: p.id === me.id })),
+    ...EXTRA_TEAM.map(p => ({ ...p })),
+  ];
+  const board = team.filter(t => t.status !== 'dnd' && t.status !== 'rpp').sort((a, b) => b.punten - a.punten);
+  const myRank = board.findIndex(t => t.you) + 1;
+
+  const medal = i => ['🥇', '🥈', '🥉'][i] || `${i + 1}`;
+  const rows = board.slice(0, 8).map((t, i) => `
+    <div class="lb-row ${t.you ? 'you' : ''}">
+      <div class="lb-rank">${medal(i)}</div>
+      <div class="lb-ic">${STATUS[t.status].icons.slice(0, 2)}</div>
+      <div class="lb-nm">${t.naam}${t.you ? ' <span class="lb-tag">jij</span>' : ''}</div>
+      <div class="lb-pt">${t.punten}</div>
+    </div>`).join('');
+
+  const toppers = board.filter(t => t.status === 'topper' || t.status === 'topper_zat');
+  const newbees = team.filter(t => t.status === 'newbee');
+  const groenen = team.filter(t => t.status === 'groen');
+
+  const toppersHtml = toppers.map(t => `
+    <div class="fam-chip">
+      <span class="e">${STATUS[t.status].icons}</span>
+      <span class="n">${t.naam.split(' ')[0]}</span>
+    </div>`).join('');
+
+  const newbeesHtml = newbees.map(t => {
+    const wk = t.newbeeWeek || 1;
+    return `
+      <div class="fam-newbee">
+        <div class="row between">
+          <b>${t.naam}</b><span class="small muted">week ${wk}/13</span>
+        </div>
+        <div class="progress" style="margin-top:6px"><i style="width:${Math.round((wk / 13) * 100)}%; background:#ff8a52"></i></div>
+        <button class="btn btn-ghost welkom" style="margin-top:9px; padding:8px 14px; font-size:13px">🙌 Heet welkom</button>
+      </div>`;
+  }).join('');
+
+  const groenenHtml = groenen.map(t => `<span class="green-name">✅ ${t.naam}</span>`).join('');
+
+  return `
+    <div class="screen-title">Familie &amp; Toppers</div>
+    <p class="screen-lead">Samen maken we Branding. Iedereen telt mee.</p>
+
+    <div class="lb-hero">
+      <div>
+        <div class="small" style="opacity:.85">Jouw plek deze week</div>
+        <div style="font-size:30px; font-weight:800">#${myRank || '–'} <span style="font-size:15px; font-weight:600; opacity:.85">van ${board.length}</span></div>
+      </div>
+      <div style="text-align:right">
+        <div class="small" style="opacity:.85">Jouw punten</div>
+        <div style="font-size:24px; font-weight:800">${me.punten}</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>🏆 Leaderboard — deze week</h3>
+      <div class="lb">${rows}</div>
+    </div>
+
+    <div class="card">
+      <h3>💪 Onze toppers</h3>
+      <p class="small muted" style="margin:-4px 0 10px">Veel beschikbaar én trouw op de lastige diensten.</p>
+      <div class="fam-chips">${toppersHtml || '<span class="muted small">Nog geen toppers deze week.</span>'}</div>
+    </div>
+
+    <div class="card" style="background:linear-gradient(135deg,#fff6ee,#ffeadb); border-color:#ffd5b0">
+      <h3>🌱 Onze newbees — heet ze welkom!</h3>
+      <p class="small muted" style="margin:-4px 0 12px">De eerste 13 weken trekken we ze voor, zodat ze echt in de familie komen.</p>
+      ${newbeesHtml || '<span class="muted small">Geen newbees op dit moment.</span>'}
+    </div>
+
+    <div class="card">
+      <h3>💚 Groene namen</h3>
+      <p class="small muted" style="margin:-4px 0 10px">Mensen die het gewoon goed doen. Bedankt!</p>
+      <div class="green-names">${groenenHtml || '<span class="muted small">—</span>'}</div>
+    </div>
+    <p class="demo-tag">Prototype · namen & punten zijn fictief</p>`;
+}
+
+/* =====================================================================
+   9. INTERACTIE per scherm
+   ===================================================================== */
+function wireView() {
+  const v = document.getElementById('view');
+
+  // Beschikbaarheid: dag aan/uit
+  v.querySelectorAll('.daycell').forEach(c => c.onclick = () => {
+    const i = +c.dataset.day;
+    const set = state.beschikbaar[state.weekOffset] || (state.beschikbaar[state.weekOffset] = new Set());
+    if (set.has(i)) set.delete(i); else set.add(i);
+    renderView();
+  });
+  v.querySelectorAll('[data-wk]').forEach(b => b.onclick = () => {
+    state.weekOffset = Math.max(0, state.weekOffset + (+b.dataset.wk));
+    renderView();
+  });
+  const save = v.querySelector('#save-besch');
+  if (save) save.onclick = () => toast('Opgeslagen ✓ — bedankt!');
+
+  // Rode plekken: pakken
+  v.querySelectorAll('[data-grab]').forEach(b => b.onclick = () => {
+    const r = RODE_PLEKKEN[+b.dataset.grab];
+    state.grabbed.add(r.dag + r.datum + r.rol);
+    toast(`Dienst gepakt! +${r.bonus} punten ⚡`);
+    renderTabs();
+    renderView();
+  });
+
+  // Rooster: dag kiezen
+  v.querySelectorAll('[data-rd]').forEach(d => d.onclick = () => {
+    state.rosterDay = +d.dataset.rd;
+    renderView();
+  });
+
+  // Overig: menu-items
+  v.querySelectorAll('[data-overig]').forEach(m => m.onclick = () => {
+    const item = OVERIG[+m.dataset.overig];
+    toast(`"${item.l}" — nog niet in prototype`);
+  });
+
+  // Overig → Familie-scherm
+  const fam = v.querySelector('#go-familie');
+  if (fam) fam.onclick = () => go('familie');
+
+  // Familie: newbee welkom heten
+  v.querySelectorAll('.welkom').forEach(b => b.onclick = () => toast('🙌 Welkom gestuurd!'));
+}
+
+/* =====================================================================
+   10. SHEETS (status-detail + persona-keuze)
+   ===================================================================== */
+function openSheet(html) {
+  const bd = document.getElementById('sheet-backdrop');
+  document.getElementById('sheet').innerHTML = `<div class="sheet-handle"></div>${html}`;
+  bd.classList.remove('hidden');
+  bd.onclick = e => { if (e.target === bd) closeSheet(); };
+}
+function closeSheet() { document.getElementById('sheet-backdrop').classList.add('hidden'); }
+
+function openStatusSheet() {
+  const p = persona();
+  const s = statusOf(p);
+  const next = nextStepHint(p);
+  openSheet(`
+    <h2>${s.icons} ${s.badge}</h2>
+    <p class="sub">${s.title}</p>
+    <div class="card flat" style="margin-bottom:12px">
+      <div class="row between"><span class="muted">Status</span><b>${s.title}</b></div>
+      ${s.level !== null ? `<div class="row between" style="margin-top:8px"><span class="muted">Level</span><b>${s.level} · ${p.punten} punten</b></div>` : ''}
+      <div class="row between" style="margin-top:8px"><span class="muted">Streak</span><b>🔥 ${p.streak} weken</b></div>
+      <div class="row between" style="margin-top:8px"><span class="muted">Beschikbare dagen</span><b>${p.dagen}</b></div>
+      <div class="row between" style="margin-top:8px"><span class="muted">Lastige diensten</span><b>${p.diensten}</b></div>
+    </div>
+    ${p.statusReason ? `<div class="hint-why">🔎 <b>Waarom deze status?</b><br>${p.statusReason}</div>` : ''}
+    <div class="goal" style="margin:0 0 12px">
+      <div class="goal-emoji">${next.emoji}</div>
+      <div class="goal-txt"><b>${next.title}</b><span>${next.sub}</span></div>
+    </div>
+    <button class="btn btn-primary btn-block" id="sheet-go">${next.cta}</button>`);
+  const go2 = document.getElementById('sheet-go');
+  if (go2) go2.onclick = () => { closeSheet(); go(next.tab || 'beschikbaar'); };
+}
+
+// "Volgende stap" — koppelt status aan een concrete actie (gamification-haak)
+function nextStepHint(p) {
+  switch (p.status) {
+    case 'topper_zat':
+    case 'topper':
+      return { emoji: '🏆', title: 'Blijf op kop', sub: 'Pak een rode plek voor extra bonuspunten', cta: 'Naar rode plekken', tab: 'rode' };
+    case 'groen':
+      return { emoji: '💪', title: 'Word een topper', sub: 'Geef ook lastige diensten op (za-avond telt dubbel)', cta: 'Beschikbaarheid uitbreiden', tab: 'beschikbaar' };
+    case 'bijna_blauw':
+      return { emoji: '⚠️', title: 'Voorkom dat je blauw wordt', sub: 'Geef nú beschikbaarheid op voor het komende rooster', cta: 'Direct opgeven', tab: 'beschikbaar' };
+    case 'blauw':
+      return { emoji: '💧', title: 'Word weer groen', sub: 'Geef minimaal 5 dagen op deze week', cta: 'Beschikbaarheid opgeven', tab: 'beschikbaar' };
+    case 'newbee':
+      return { emoji: '🌱', title: `Week ${p.newbeeWeek} van 13`, sub: 'Geef je eerste weken volop op — zo kom je echt in de familie', cta: 'Beschikbaarheid opgeven', tab: 'beschikbaar' };
+    case 'vakantie':
+      return { emoji: '🏖️', title: `Nog ${p.vakantieOver} dagen`, sub: 'Regel je diensten ervoor en erna', cta: 'Bekijk mijn rooster', tab: 'ingeroosterd' };
+    default:
+      return { emoji: '👋', title: 'Fijn dat je er bent', sub: 'Bekijk gerust het rooster van het team', cta: 'Naar rooster', tab: 'rooster' };
+  }
+}
+
+function openPersonaSheet() {
+  const rows = PERSONAS.map((p, i) => {
+    const s = STATUS[p.status];
+    const col = themeColor(s.theme);
+    return `
+      <div class="persona-row ${i === state.personaIx ? 'active' : ''}" data-px="${i}">
+        <div class="persona-dot" style="background:${col}">${s.icons.slice(0, 2)}</div>
+        <div class="pn"><b>${p.naam}</b><span>${s.badge} — ${s.title}</span></div>
+        ${i === state.personaIx ? '<span style="color:var(--green-dark);font-weight:800">✓</span>' : ''}
+      </div>`;
+  }).join('');
+  openSheet(`
+    <h2>Demo-medewerker</h2>
+    <p class="sub">Wissel om elke status & flag te zien. De balk bovenin verandert mee.</p>
+    ${rows}`);
+  document.querySelectorAll('[data-px]').forEach(r => r.onclick = () => {
+    state.personaIx = +r.dataset.px;
+    state.weekOffset = 0; state.grabbed = new Set();
+    closeSheet();
+    renderAll();
+    toast('Gewisseld van medewerker');
+  });
+}
+
+function themeColor(theme) {
+  return { 't-green': '#4f9d57', 't-alert': '#4f9d57', 't-blue': '#4a6fa5',
+    't-sunrise': '#ff8a52', 't-purple': '#8e6fce', 't-gold': '#d6a534', 't-slate': '#6b7280' }[theme] || '#4f9d57';
+}
+
+/* =====================================================================
+   11. NAVIGATIE + helpers
+   ===================================================================== */
+function go(tab) { state.tab = tab; renderTabs(); renderView(); }
+
+function toast(msg) {
+  const old = document.querySelector('.toast'); if (old) old.remove();
+  const t = document.createElement('div');
+  t.className = 'toast'; t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 1900);
+}
+
+function renderAll() { renderStatus(); renderTabs(); renderView(); }
+
+/* =====================================================================
+   12. START
+   ===================================================================== */
+document.getElementById('persona-fab').onclick = openPersonaSheet;
+renderAll();
+startTicker();   // live aftelklok
