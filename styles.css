@@ -377,6 +377,7 @@ html, body {
   padding: 9px 0; font-size: 12px; font-weight: 800; background: #e2e6df; color: #8a908a;
 }
 .wkpill.has { background: var(--green); color: #fff; }
+.wkpill.vrij { background: var(--red); color: #fff; }  /* volle vakantieweek */
 .wkpill.cur { outline: 3px solid #2f342f; outline-offset: 1px; }
 
 .quick { display: flex; flex-wrap: wrap; gap: 7px; margin: 4px 0 12px; }

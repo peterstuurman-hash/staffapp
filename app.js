@@ -194,6 +194,13 @@ function baselineWeken(p) {
 // Vul de demo-beschikbaarheid bij het kiezen van een medewerker
 function seedWeken(p) {
   state.weken = {};
+  // Vakantieganger: huidige week beschikbaar, dan 2 weken vakantie (vrij),
+  // daarna leeg — zodat de weken ná de vakantie nog opgegeven moeten worden.
+  if (p.status === 'vakantie') {
+    const wk0 = Cal.emptyDays(); Cal.fill(wk0, 'doordeweeks'); Cal.fill(wk0, 'weekend'); state.weken[0] = wk0;
+    for (const w of [1, 2]) { const d = Cal.emptyDays(); Cal.fill(d, 'alle-v'); state.weken[w] = d; }
+    return;
+  }
   const n = baselineWeken(p);
   const weekend = (p.status === 'topper_zat' || p.status === 'topper');
   for (let w = 0; w < n; w++) {
@@ -247,6 +254,21 @@ function countTarget() {
     }
   }
   return { d, l, ok: d >= TARGET.diensten && l >= TARGET.lastig };
+}
+
+// Volle vakantieweek = elke dag op vrij
+function isVakantieWeek(off) {
+  const d = state.weken[off];
+  return !!d && Cal.DAY_KEYS.every(k => d[k] && d[k].off);
+}
+// Vakantie + lege weken erna (om te stimuleren)
+function vacInfo() {
+  let last = -1;
+  for (let w = 0; w < GOAL_WEEKS; w++) if (isVakantieWeek(w)) last = w;
+  if (last < 0) return { hasVac: false, emptyAfter: 0 };
+  let emptyAfter = 0;
+  for (let w = last + 1; w < GOAL_WEEKS; w++) { const d = state.weken[w]; if (!d || Cal.isEmpty(d)) emptyAfter++; }
+  return { hasVac: true, lastVacWeek: last, emptyAfter };
 }
 
 /* ---------------------------------------------------------------------
@@ -434,6 +456,16 @@ function renderView() {
 
 // Begeleiding: voortgang naar 12 diensten / 3 lastige in 4 weken
 function coachCard(p) {
+  // Vakantieganger: stimuleer de weken ná de vakantie als die nog leeg zijn
+  if (p.status === 'vakantie') {
+    const v = vacInfo();
+    if (!(v.hasVac && v.emptyAfter > 0)) return '';
+    return `
+      <div class="coach blue">
+        <div class="coach-head">Je vakantie staat genoteerd. Geef je beschikbaarheid op voor de weken ná je vakantie.</div>
+        <p class="coach-note">${v.emptyAfter} week(en) na je vakantie zijn nog niet ingevuld.</p>
+      </div>`;
+  }
   const t = countTarget();
   const focus = ['blauw', 'bijna_blauw', 'newbee'].includes(p.status);
   if (t.ok && !focus) return ''; // doel gehaald en geen aandachtsgroep → scherm rustig houden
@@ -470,7 +502,7 @@ function viewBeschikbaar() {
   // Overzicht: 10 weken vooruit als pillen (gevuld = iets ingevuld, leeg = nog niets)
   const pillen = Array.from({ length: GOAL_WEEKS }, (_, w) => {
     const d = state.weken[w];
-    const cls = (d && !Cal.isEmpty(d)) ? 'has' : 'leeg';
+    const cls = isVakantieWeek(w) ? 'vrij' : (d && !Cal.isEmpty(d)) ? 'has' : 'leeg';
     return `<button class="wkpill ${cls} ${w === off ? 'cur' : ''}" data-pill="${w}">${weekNr(w)}</button>`;
   }).join('');
 
@@ -917,6 +949,10 @@ function pushFor(p) {
   if (p.status === 'blauw')       return { title: 'Je hebt te weinig beschikbaarheid', msg: 'Geef nu op voor de komende 4 weken — anders kun je niet ingeroosterd worden.' };
   if (p.status === 'bijna_blauw') return { title: 'Bijna blauw', msg: 'Geef snel beschikbaarheid op voor het komende rooster.' };
   if (p.status === 'newbee')      return { title: 'Welkom bij Branding', msg: 'Geef je eerste weken op zodat we je kunnen inplannen.' };
+  if (p.status === 'vakantie') {
+    const v = vacInfo();
+    if (v.hasVac && v.emptyAfter > 0) return { title: 'Beschikbaarheid ná je vakantie', msg: `Je vakantie staat genoteerd. De ${v.emptyAfter} weken erna zijn nog leeg — geef ze op zodat je daarna weer ingeroosterd wordt.` };
+  }
   return null;
 }
 function showPush() {
