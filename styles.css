@@ -409,9 +409,12 @@ html, body {
 .tg-day .rng { display: block; font-size: 8px; color: var(--green-dark); font-weight: 800; min-height: 11px; }
 .tg-day.isoff .rng { color: #b3261e; }
 .tg-day.tg-wknd .dn { color: #b8741f; }
-.tg-acts { display: flex; justify-content: center; gap: 2px; margin-top: 1px; }
-.tg-off, .tg-clear { border: none; background: none; cursor: pointer; font-size: 10px; line-height: 1; padding: 1px 2px; opacity: .5; }
-.tg-off:hover, .tg-clear:hover { opacity: 1; }
+.tg-acts { display: flex; justify-content: center; gap: 3px; margin-top: 2px; }
+.tg-off, .tg-clear { border: 1px solid var(--line); background: #fff; cursor: pointer; font-size: 11px; line-height: 1; padding: 3px 5px; border-radius: 7px; }
+.tg-off { border-color: #f0cecb; }
+.tg-off:active, .tg-clear:active { transform: scale(.9); }
+.tg-day.isoff .tg-off { background: #e8a59f; border-color: #e8a59f; }
+.tg-clear { color: var(--muted); }
 .tg-time { font-size: 9px; color: var(--muted); text-align: right; padding-right: 3px; align-self: center; }
 .tg-cell { height: 17px; background: #eceeea; border-radius: 4px; cursor: pointer; }
 .tg-cell.tg-wknd { background: #f3e8d8; }

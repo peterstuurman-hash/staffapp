@@ -434,7 +434,6 @@ function viewBeschikbaar() {
         <button class="qbtn a" data-quick="doordeweeks">Ma–vr kan</button>
         <button class="qbtn a" data-quick="weekend">Weekend kan</button>
         <button class="qbtn a" data-quick="alle-a">Hele week</button>
-        <button class="qbtn v" data-quick="alle-v">🚫 Week vrij</button>
         <button class="qbtn x" data-quick="wis">Wis</button>
       </div>
 
