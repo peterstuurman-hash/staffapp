@@ -183,6 +183,8 @@ const state = {
 
 function persona() { return PERSONAS[state.personaIx]; }
 function statusOf(p) { return STATUS[p.status]; }
+function userZaak(p) { return (p.rol.split('·').pop() || '').trim(); }
+function isTopper(p) { return p.status === 'topper' || p.status === 'topper_zat'; }
 
 /* ---- Beschikbaarheid-helpers ---------------------------------------- */
 // Hoeveel weken iemand standaard al vooruit heeft staan (alleen voor de demo)
@@ -406,7 +408,11 @@ function renderTabs() {
     </button>`).join('');
   nav.querySelectorAll('.tab').forEach(b => b.onclick = () => go(b.dataset.tab));
 }
-function hasRode() { return RODE_PLEKKEN.some(r => !isGrabbed(r)); }
+function hasRode() {
+  const p = persona();
+  if (isTopper(p)) return false; // toppers niet pushen
+  return RODE_PLEKKEN.some(r => r.zaak === userZaak(p) && !isGrabbed(r));
+}
 function isGrabbed(r) { return state.grabbed.has(r.dag + r.datum + r.rol); }
 
 /* =====================================================================
@@ -505,8 +511,17 @@ function viewBeschikbaar() {
 
 /* ---- 8b. Rode plekken pakken ---- */
 function viewRode() {
-  const open = RODE_PLEKKEN.filter(r => !isGrabbed(r));
-  const items = RODE_PLEKKEN.map((r, i) => {
+  const p = persona();
+  const zaak = userZaak(p);
+  const topper = isTopper(p);
+
+  // Nooit zaken mixen: alleen open diensten van de eigen zaak
+  const mine = RODE_PLEKKEN
+    .map((r, i) => ({ r, i }))
+    .filter(({ r }) => r.zaak === zaak);
+  const open = mine.filter(({ r }) => !isGrabbed(r));
+
+  const shift = ({ r, i }, promo) => {
     const grabbed = isGrabbed(r);
     return `
       <div class="shift" style="${grabbed ? 'opacity:.5' : ''}">
@@ -514,7 +529,7 @@ function viewRode() {
         <div class="info">
           <b>${r.rol} · ${r.zaak}</b>
           <div class="meta">${r.tijd}</div>
-          ${r.hot ? '<span class="bonus">🔥 snel nodig</span>' : ''}
+          ${promo && r.hot ? '<span class="bonus">🔥 snel nodig</span>' : ''}
         </div>
         <div class="grab">
           ${grabbed
@@ -522,13 +537,26 @@ function viewRode() {
             : `<button class="btn btn-primary" data-grab="${i}">Pak</button>`}
         </div>
       </div>`;
-  }).join('');
+  };
+
+  // Toppers: niet promoten — rustige boodschap, diensten alleen als ze zelf willen
+  if (topper) {
+    return `
+      <div class="screen-title">Rode plekken</div>
+      <p class="screen-lead">Open diensten bij ${zaak}.</p>
+      <div class="card flat" style="text-align:center; padding:22px 18px">
+        <div style="font-size:15px; font-weight:700; margin-bottom:4px">Jij hebt je beschikbaarheid al top op orde 💪</div>
+        <div class="small muted">We hoeven jou hier niets te vragen. Wil je toch een keer bijspringen? Hieronder staan de open diensten.</div>
+      </div>
+      ${open.length ? open.map(o => shift(o, false)).join('') : '<p class="muted small center">Geen open diensten.</p>'}
+      <p class="demo-tag">Prototype · diensten zijn fictief</p>`;
+  }
 
   return `
     <div class="screen-title">Rode plekken pakken</div>
-    <p class="screen-lead">Open diensten die nog gevuld moeten worden. Wie snel is, scoort de bonus.</p>
-    <div class="hot-ribbon">🔥 ${open.length} open dienst(en) — help het team en pak er één</div>
-    ${items}
+    <p class="screen-lead">Open diensten bij ${zaak} die nog gevuld moeten worden.</p>
+    ${open.length ? `<div class="hot-ribbon">🔥 ${open.length} open dienst(en) — help het team en pak er één</div>` : '<p class="muted small">Op dit moment geen open diensten. 👍</p>'}
+    ${mine.map(o => shift(o, true)).join('')}
     <p class="demo-tag">Prototype · diensten zijn fictief</p>`;
 }
 
