@@ -168,18 +168,59 @@ function startTicker() {
 /* ---------------------------------------------------------------------
    3. APP-STATE
    --------------------------------------------------------------------- */
+const GOAL_WEEKS = 10;                 // we willen ~10 weken vooruit
+const BASE_MONDAY = new Date(2026, 5, 29); // ma 29 juni 2026 = week 27, offset 0
+
 const state = {
   personaIx: 0,
   tab: 'beschikbaar',
   weekOffset: 0,
   rosterDay: 0,        // 0 = maandag
-  // beschikbaarheid die de gebruiker aanvinkt (per weekOffset een Set van dagindexen)
-  beschikbaar: {},
+  // per weekOffset een object { dagIndex: 'a' (beschikbaar) | 'v' (vrije dag) }
+  weken: {},
   grabbed: new Set(),  // gepakte rode plekken
 };
 
 function persona() { return PERSONAS[state.personaIx]; }
 function statusOf(p) { return STATUS[p.status]; }
+
+/* ---- Beschikbaarheid-helpers ---------------------------------------- */
+// Hoeveel weken iemand standaard al vooruit heeft staan (alleen voor de demo)
+function baselineWeken(p) {
+  return ({ topper_zat: 9, topper: 8, vakantie: 7, groen: 5, newbee: 3, bijna_blauw: 2, blauw: 1 })[p.status] || 0;
+}
+// Vul de demo-beschikbaarheid bij het kiezen van een medewerker
+function seedWeken(p) {
+  state.weken = {};
+  const n = baselineWeken(p);
+  const weekend = (p.status === 'topper_zat' || p.status === 'topper');
+  for (let w = 0; w < n; w++) {
+    const days = Cal.emptyDays();
+    Cal.fill(days, 'doordeweeks');
+    if (weekend) Cal.fill(days, 'weekend');
+    state.weken[w] = days;
+  }
+}
+function weekDays(off) { return state.weken[off] || (state.weken[off] = Cal.emptyDays()); }
+// Aantal weken vooruit waarin iets is ingevuld (beschikbaar of vrij)
+function wekenIngevuld() {
+  let n = 0;
+  for (let w = 0; w < GOAL_WEEKS; w++) {
+    const d = state.weken[w];
+    if (d && !Cal.isEmpty(d)) n++;
+  }
+  return n;
+}
+function mondayFor(off) {
+  const d = new Date(BASE_MONDAY); d.setDate(d.getDate() + off * 7); return d;
+}
+function weekNr(offset) { return 27 + offset; }
+function dateFor(offset, day) {
+  const d = new Date(BASE_MONDAY);
+  d.setDate(d.getDate() + offset * 7 + day);
+  return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+function weekRange(offset) { return `${dateFor(offset, 0)} – ${dateFor(offset, 6)}`; }
 
 /* ---------------------------------------------------------------------
    4. MOCK-DATA voor de schermen
@@ -237,15 +278,15 @@ const OVERIG = [
   { ic: '🚪', l: 'Log uit' },
 ];
 
-// Prestatie-badges (gamification)
+// Prestatie-badges (gamification — op gedrag, niet op punten/plek)
 function badgesVoor(p) {
   return [
-    { e: '🔥', l: `${p.streak}-weken streak`, on: p.streak >= 3 },
+    { e: '📅', l: '10 weken vooruit', on: wekenIngevuld() >= GOAL_WEEKS },
     { e: '💪', l: 'Topper', on: ['topper', 'topper_zat'].includes(p.status) },
     { e: '🕺', l: 'Zaterdag-held', on: p.zaterdagen >= 4 },
     { e: '🌱', l: 'Familielid', on: p.dagen >= 10 || p.status === 'newbee' },
-    { e: '⚡', l: 'Snelle pakker', on: p.diensten >= 5 },
-    { e: '🏆', l: '1500+ punten', on: p.punten >= 1500 },
+    { e: '⚡', l: 'Veel diensten', on: p.diensten >= 5 },
+    { e: '🟢', l: 'Trouw groen', on: ['groen', 'topper', 'topper_zat'].includes(p.status) },
   ];
 }
 
@@ -269,10 +310,12 @@ function renderStatus() {
   const bar = document.getElementById('status-bar');
   bar.className = 'statusbar ' + s.theme;
 
+  // Voortgangsbalk = hoeveel weken vooruit opgegeven (geen punten/plek)
+  const wv = wekenIngevuld();
   const xpBlock = (s.level !== null) ? `
     <div class="sb-xp">
-      <div class="sb-xp-track"><div class="sb-xp-fill" style="width:${Math.round(p.xp * 100)}%"></div></div>
-      <div class="sb-xp-meta"><span>Level ${s.level} · ${p.punten} pnt</span><span>🔥 ${p.streak} wkn streak</span></div>
+      <div class="sb-xp-track"><div class="sb-xp-fill" style="width:${Math.round((wv / GOAL_WEEKS) * 100)}%"></div></div>
+      <div class="sb-xp-meta"><span>${wv} van ${GOAL_WEEKS} weken vooruit opgegeven</span><span>${wv >= GOAL_WEEKS ? 'top! 🎉' : `nog ${GOAL_WEEKS - wv}`}</span></div>
     </div>` : '';
 
   // "Bijna blauw" krijgt een live aftelklok i.p.v. een simpele chip
@@ -357,49 +400,55 @@ function renderView() {
 
 /* ---- 8a. Beschikbaarheid opgeven ---- */
 function viewBeschikbaar() {
-  const p = persona();
-  const wk = 29 + state.weekOffset;
-  const sel = state.beschikbaar[state.weekOffset] || new Set();
-  const doel = 5;
-  const goalTxt = sel.size >= doel
-    ? `Top! ${sel.size} dagen deze week — je houdt je groen 💚`
-    : `Nog ${doel - sel.size} dag(en) tot je weekdoel`;
+  const off = state.weekOffset;
+  const ingevuld = wekenIngevuld();
+  const sum = Cal.summary(weekDays(off));
 
-  const cells = DAGEN.map((d, i) => {
-    const on = sel.has(i);
-    const wknd = i >= 5;
-    return `
-      <div class="daycell ${on ? 'on' : ''} ${wknd ? 'wknd' : ''}" data-day="${i}">
-        <div class="dn">${d}</div>
-        <div class="dd">${String(13 + i).padStart(2, '0')}/07</div>
-        <div class="dt">${on ? '09:00–20:00' : ''}</div>
-      </div>`;
+  // Overzicht: 10 weken vooruit als pillen (gevuld = iets ingevuld, leeg = nog niets)
+  const pillen = Array.from({ length: GOAL_WEEKS }, (_, w) => {
+    const d = state.weken[w];
+    const cls = (d && !Cal.isEmpty(d)) ? 'has' : 'leeg';
+    return `<button class="wkpill ${cls} ${w === off ? 'cur' : ''}" data-pill="${w}">${weekNr(w)}</button>`;
   }).join('');
 
   return `
-    <div class="screen-title">Beschikbaarheid opgeven</div>
-    <p class="screen-lead">Het belangrijkste wat je doet. Tik de dagen aan dat je kunt werken.</p>
+    <div class="screen-title">Beschikbaarheid</div>
+    <p class="screen-lead">Sleep per dag over de uren dat je <b>kunt werken</b>, of zet een dag op <b>🚫 vrij</b>. Vul één week en <b>kopieer 'm vooruit</b>.</p>
 
-    <div class="goal">
-      <div class="goal-emoji">🎯</div>
-      <div class="goal-txt">
-        <b>${goalTxt}</b>
-        <span>Hoe meer je opgeeft, hoe hoger je punten & level</span>
-        <div class="progress"><i style="width:${Math.min(100, (sel.size / doel) * 100)}%"></i></div>
+    <div class="weken-goal">
+      <div class="row between">
+        <b>${ingevuld} van ${GOAL_WEEKS} weken vooruit ingevuld</b>
+        <span class="small muted">tik een week ↓</span>
       </div>
+      <div class="wkpills">${pillen}</div>
     </div>
 
     <div class="card">
       <div class="weeknav">
-        <button data-wk="-1">‹</button>
-        <span class="wk">Week ${wk} · 13–19 jul</span>
-        <button data-wk="1">›</button>
+        <button data-wk="-1" ${off === 0 ? 'disabled' : ''}>‹</button>
+        <span class="wk">Week ${weekNr(off)} · ${weekRange(off)}</span>
+        <button data-wk="1" ${off >= GOAL_WEEKS - 1 ? 'disabled' : ''}>›</button>
       </div>
-      <div class="daygrid">${cells}</div>
-      <p class="small muted center" style="margin:12px 0 0">Tik een dag aan/uit · standaardtijd 09:00–20:00</p>
+
+      <div class="quick">
+        <button class="qbtn a" data-quick="doordeweeks">Ma–vr kan</button>
+        <button class="qbtn a" data-quick="weekend">Weekend kan</button>
+        <button class="qbtn a" data-quick="alle-a">Hele week</button>
+        <button class="qbtn v" data-quick="alle-v">🚫 Week vrij</button>
+        <button class="qbtn x" data-quick="wis">Wis</button>
+      </div>
+
+      <div id="tg-grid"></div>
+
+      <div class="legenda">
+        <span><i class="lg a"></i> kan werken (${sum.kan})</span>
+        <span><i class="lg v"></i> vrije dag (${sum.vrij})</span>
+      </div>
+      <p class="small muted center" style="margin:8px 0 0">Sleep over de uren · ✕ wist · 🚫 = vrije dag</p>
     </div>
 
-    <button class="btn btn-primary btn-block" id="save-besch">Opslaan & doorkopiëren →</button>
+    <button class="btn btn-primary btn-block btn-copy" id="open-copy">📋 Kopieer week ${weekNr(off)} naar volgende weken</button>
+    <button class="btn btn-ghost btn-block" id="save-besch" style="margin-top:10px">Opslaan</button>
     <p class="demo-tag">Prototype · niets wordt echt opgeslagen</p>`;
 }
 
@@ -414,7 +463,7 @@ function viewRode() {
         <div class="info">
           <b>${r.rol} · ${r.zaak}</b>
           <div class="meta">${r.tijd}</div>
-          <span class="bonus">⚡ +${r.bonus} bonuspunten</span>
+          ${r.hot ? '<span class="bonus">🔥 snel nodig</span>' : ''}
         </div>
         <div class="grab">
           ${grabbed
@@ -427,9 +476,9 @@ function viewRode() {
   return `
     <div class="screen-title">Rode plekken pakken</div>
     <p class="screen-lead">Open diensten die nog gevuld moeten worden. Wie snel is, scoort de bonus.</p>
-    <div class="hot-ribbon">🔥 ${open.length} open dienst(en) — pak er één en verdien bonuspunten</div>
+    <div class="hot-ribbon">🔥 ${open.length} open dienst(en) — help het team en pak er één</div>
     ${items}
-    <p class="demo-tag">Prototype · bonuspunten zijn fictief</p>`;
+    <p class="demo-tag">Prototype · diensten zijn fictief</p>`;
 }
 
 /* ---- 8c. Wanneer ingeroosterd ---- */
@@ -507,9 +556,9 @@ function viewOverig() {
     <p class="screen-lead">Alles wat je verder nodig hebt.</p>
 
     <div class="stat-grid">
-      <div class="stat"><b>${p.punten}</b><span>punten</span></div>
+      <div class="stat"><b>${wekenIngevuld()}/${GOAL_WEEKS}</b><span>weken vooruit</span></div>
       <div class="stat"><b>${p.dagen}</b><span>dagen besch.</span></div>
-      <div class="stat"><b>${p.streak}🔥</b><span>weken streak</span></div>
+      <div class="stat"><b>${p.diensten}</b><span>lastige diensten</span></div>
     </div>
 
     <div class="card" id="go-familie" style="cursor:pointer; background:linear-gradient(135deg,#fff7e8,#ffeccf); border-color:#f0d79a">
@@ -517,7 +566,7 @@ function viewOverig() {
         <div style="font-size:30px">🏆</div>
         <div style="flex:1">
           <b>Familie &amp; Toppers</b>
-          <div class="small muted">Leaderboard, onze newbees en wie het goed doet</div>
+          <div class="small muted">Onze toppers, newbees en wie het goed doet</div>
         </div>
         <div class="mi-chev" style="font-size:22px">›</div>
       </div>
@@ -532,27 +581,16 @@ function viewOverig() {
     <p class="demo-tag">Prototype · menu-items zijn nog niet actief</p>`;
 }
 
-/* ---- 8f. Familie & Toppers (de drie gradaties + leaderboard) ---- */
+/* ---- 8f. Familie & Toppers (de drie gradaties — geen plek/punten) ---- */
 function viewFamilie() {
   const me = persona();
-  // Volledige teamlijst (demo-medewerkers + extra leden), op punten gesorteerd
+  // Volledige teamlijst (demo-medewerkers + extra leden)
   const team = [
-    ...PERSONAS.map(p => ({ naam: p.naam, status: p.status, punten: p.punten, newbeeWeek: p.newbeeWeek, you: p.id === me.id })),
+    ...PERSONAS.map(p => ({ naam: p.naam, status: p.status, newbeeWeek: p.newbeeWeek, you: p.id === me.id })),
     ...EXTRA_TEAM.map(p => ({ ...p })),
   ];
-  const board = team.filter(t => t.status !== 'dnd' && t.status !== 'rpp').sort((a, b) => b.punten - a.punten);
-  const myRank = board.findIndex(t => t.you) + 1;
 
-  const medal = i => ['🥇', '🥈', '🥉'][i] || `${i + 1}`;
-  const rows = board.slice(0, 8).map((t, i) => `
-    <div class="lb-row ${t.you ? 'you' : ''}">
-      <div class="lb-rank">${medal(i)}</div>
-      <div class="lb-ic">${STATUS[t.status].icons.slice(0, 2)}</div>
-      <div class="lb-nm">${t.naam}${t.you ? ' <span class="lb-tag">jij</span>' : ''}</div>
-      <div class="lb-pt">${t.punten}</div>
-    </div>`).join('');
-
-  const toppers = board.filter(t => t.status === 'topper' || t.status === 'topper_zat');
+  const toppers = team.filter(t => t.status === 'topper' || t.status === 'topper_zat');
   const newbees = team.filter(t => t.status === 'newbee');
   const groenen = team.filter(t => t.status === 'groen');
 
@@ -580,22 +618,6 @@ function viewFamilie() {
     <div class="screen-title">Familie &amp; Toppers</div>
     <p class="screen-lead">Samen maken we Branding. Iedereen telt mee.</p>
 
-    <div class="lb-hero">
-      <div>
-        <div class="small" style="opacity:.85">Jouw plek deze week</div>
-        <div style="font-size:30px; font-weight:800">#${myRank || '–'} <span style="font-size:15px; font-weight:600; opacity:.85">van ${board.length}</span></div>
-      </div>
-      <div style="text-align:right">
-        <div class="small" style="opacity:.85">Jouw punten</div>
-        <div style="font-size:24px; font-weight:800">${me.punten}</div>
-      </div>
-    </div>
-
-    <div class="card">
-      <h3>🏆 Leaderboard — deze week</h3>
-      <div class="lb">${rows}</div>
-    </div>
-
     <div class="card">
       <h3>💪 Onze toppers</h3>
       <p class="small muted" style="margin:-4px 0 10px">Veel beschikbaar én trouw op de lastige diensten.</p>
@@ -613,7 +635,7 @@ function viewFamilie() {
       <p class="small muted" style="margin:-4px 0 10px">Mensen die het gewoon goed doen. Bedankt!</p>
       <div class="green-names">${groenenHtml || '<span class="muted small">—</span>'}</div>
     </div>
-    <p class="demo-tag">Prototype · namen & punten zijn fictief</p>`;
+    <p class="demo-tag">Prototype · namen zijn fictief</p>`;
 }
 
 /* =====================================================================
@@ -622,17 +644,34 @@ function viewFamilie() {
 function wireView() {
   const v = document.getElementById('view');
 
-  // Beschikbaarheid: dag aan/uit
-  v.querySelectorAll('.daycell').forEach(c => c.onclick = () => {
-    const i = +c.dataset.day;
-    const set = state.beschikbaar[state.weekOffset] || (state.beschikbaar[state.weekOffset] = new Set());
-    if (set.has(i)) set.delete(i); else set.add(i);
-    renderView();
+  // Beschikbaarheid: monteer de sleep-kalender
+  const grid = v.querySelector('#tg-grid');
+  if (grid && window.Cal) {
+    Cal.renderBaseWeek(grid, weekDays(state.weekOffset), mondayFor(state.weekOffset), () => {
+      renderStatus();          // weken-vooruit in de balk live bijwerken
+      // alleen de legenda-tellertjes verversen, niet de hele view (anders verspringt het slepen)
+      const lg = v.querySelector('.legenda');
+      if (lg) { const s = Cal.summary(weekDays(state.weekOffset)); lg.innerHTML =
+        `<span><i class="lg a"></i> kan werken (${s.kan})</span><span><i class="lg v"></i> vrije dag (${s.vrij})</span>`; }
+    });
+  }
+  // Snelvul-knoppen
+  v.querySelectorAll('[data-quick]').forEach(b => b.onclick = () => {
+    Cal.fill(weekDays(state.weekOffset), b.dataset.quick);
+    renderStatus(); renderView();
   });
+  // Week vooruit/terug
   v.querySelectorAll('[data-wk]').forEach(b => b.onclick = () => {
-    state.weekOffset = Math.max(0, state.weekOffset + (+b.dataset.wk));
+    state.weekOffset = Math.min(GOAL_WEEKS - 1, Math.max(0, state.weekOffset + (+b.dataset.wk)));
     renderView();
   });
+  // Week kiezen via de pillen
+  v.querySelectorAll('[data-pill]').forEach(b => b.onclick = () => {
+    state.weekOffset = +b.dataset.pill; renderView();
+  });
+  // Kopiëren naar volgende weken
+  const copyBtn = v.querySelector('#open-copy');
+  if (copyBtn) copyBtn.onclick = openCopySheet;
   const save = v.querySelector('#save-besch');
   if (save) save.onclick = () => toast('Opgeslagen ✓ — bedankt!');
 
@@ -640,7 +679,7 @@ function wireView() {
   v.querySelectorAll('[data-grab]').forEach(b => b.onclick = () => {
     const r = RODE_PLEKKEN[+b.dataset.grab];
     state.grabbed.add(r.dag + r.datum + r.rol);
-    toast(`Dienst gepakt! +${r.bonus} punten ⚡`);
+    toast('Dienst gepakt! ✅');
     renderTabs();
     renderView();
   });
@@ -676,6 +715,39 @@ function openSheet(html) {
 }
 function closeSheet() { document.getElementById('sheet-backdrop').classList.add('hidden'); }
 
+// Kopieer de huidige week naar gekozen volgende weken (tot 10 weken vooruit)
+function openCopySheet() {
+  const off = state.weekOffset;
+  const src = weekDays(off);
+  const targets = [];
+  for (let w = 0; w < GOAL_WEEKS; w++) if (w !== off) targets.push(w);
+  const rows = targets.map(w => `
+    <label class="copy-row">
+      <input type="checkbox" checked data-copy="${w}"/>
+      <span>Week ${weekNr(w)} <span class="small muted">(${weekRange(w)})</span></span>
+    </label>`).join('');
+  openSheet(`
+    <h2>📋 Kopieer week ${weekNr(off)}</h2>
+    <p class="sub">Zet dezelfde beschikbaarheid én vrije dagen in de gekozen weken. Zo geef je in één keer weken vooruit op.</p>
+    <button class="btn btn-link" id="copy-all" style="margin-bottom:4px">Alles aan / uit</button>
+    <div class="copy-list">${rows}</div>
+    <button class="btn btn-primary btn-block" id="copy-go" style="margin-top:6px">Kopieer naar aangevinkte weken</button>
+    <button class="btn btn-ghost btn-block" id="copy-close" style="margin-top:10px">Sluit</button>`);
+  const sheet = document.getElementById('sheet');
+  sheet.querySelector('#copy-close').onclick = closeSheet;
+  sheet.querySelector('#copy-all').onclick = () => {
+    const cbs = sheet.querySelectorAll('[data-copy]');
+    const anyOff = [...cbs].some(c => !c.checked);
+    cbs.forEach(c => c.checked = anyOff);
+  };
+  sheet.querySelector('#copy-go').onclick = () => {
+    const sel = [...sheet.querySelectorAll('[data-copy]')].filter(c => c.checked).map(c => +c.dataset.copy);
+    sel.forEach(w => state.weken[w] = Cal.cloneDays(src));
+    closeSheet(); renderStatus(); renderView();
+    toast(`Gekopieerd naar ${sel.length} ${sel.length === 1 ? 'week' : 'weken'} ✓`);
+  };
+}
+
 function openStatusSheet() {
   const p = persona();
   const s = statusOf(p);
@@ -685,8 +757,7 @@ function openStatusSheet() {
     <p class="sub">${s.title}</p>
     <div class="card flat" style="margin-bottom:12px">
       <div class="row between"><span class="muted">Status</span><b>${s.title}</b></div>
-      ${s.level !== null ? `<div class="row between" style="margin-top:8px"><span class="muted">Level</span><b>${s.level} · ${p.punten} punten</b></div>` : ''}
-      <div class="row between" style="margin-top:8px"><span class="muted">Streak</span><b>🔥 ${p.streak} weken</b></div>
+      <div class="row between" style="margin-top:8px"><span class="muted">Weken vooruit opgegeven</span><b>${wekenIngevuld()} van ${GOAL_WEEKS}</b></div>
       <div class="row between" style="margin-top:8px"><span class="muted">Beschikbare dagen</span><b>${p.dagen}</b></div>
       <div class="row between" style="margin-top:8px"><span class="muted">Lastige diensten</span><b>${p.diensten}</b></div>
     </div>
@@ -705,7 +776,7 @@ function nextStepHint(p) {
   switch (p.status) {
     case 'topper_zat':
     case 'topper':
-      return { emoji: '🏆', title: 'Blijf op kop', sub: 'Pak een rode plek voor extra bonuspunten', cta: 'Naar rode plekken', tab: 'rode' };
+      return { emoji: '🏆', title: 'Blijf op kop', sub: 'Help het team: pak af en toe een rode plek', cta: 'Naar rode plekken', tab: 'rode' };
     case 'groen':
       return { emoji: '💪', title: 'Word een topper', sub: 'Geef ook lastige diensten op (za-avond telt dubbel)', cta: 'Beschikbaarheid uitbreiden', tab: 'beschikbaar' };
     case 'bijna_blauw':
@@ -739,6 +810,7 @@ function openPersonaSheet() {
   document.querySelectorAll('[data-px]').forEach(r => r.onclick = () => {
     state.personaIx = +r.dataset.px;
     state.weekOffset = 0; state.grabbed = new Set();
+    seedWeken(persona());
     closeSheet();
     renderAll();
     toast('Gewisseld van medewerker');
@@ -769,5 +841,6 @@ function renderAll() { renderStatus(); renderTabs(); renderView(); }
    12. START
    ===================================================================== */
 document.getElementById('persona-fab').onclick = openPersonaSheet;
+seedWeken(persona());
 renderAll();
 startTicker();   // live aftelklok

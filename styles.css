@@ -369,6 +369,55 @@ html, body {
 /* "Waarom deze status" in de detail-sheet */
 .hint-why { background: #eef4fb; border-left: 4px solid var(--blue); color: #33506f; padding: 10px 13px; border-radius: 8px; margin: 0 0 12px; font-size: 13px; }
 
+/* ====== Beschikbaarheid: weken-overzicht + snelknoppen ====== */
+.weken-goal { background: #eef6ef; border: 1.5px solid #cfe6d1; border-radius: 16px; padding: 12px 14px; margin-bottom: 14px; }
+.wkpills { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+.wkpill {
+  flex: 1 1 0; min-width: 34px; border: none; cursor: pointer; border-radius: 9px;
+  padding: 9px 0; font-size: 12px; font-weight: 800; background: #e2e6df; color: #8a908a;
+}
+.wkpill.has { background: var(--green); color: #fff; }
+.wkpill.cur { outline: 3px solid #2f342f; outline-offset: 1px; }
+
+.quick { display: flex; flex-wrap: wrap; gap: 7px; margin: 4px 0 12px; }
+.qbtn { border: 1.5px solid var(--line); background: #fff; border-radius: 999px; padding: 8px 12px; font-size: 12.5px; font-weight: 700; cursor: pointer; }
+.qbtn.a { border-color: #bfe0c2; color: var(--green-dark); }
+.qbtn.v { border-color: #f1c9c7; color: #b3261e; }
+.qbtn.x { color: var(--muted); }
+.qbtn:active { transform: scale(.95); }
+
+.legenda { display: flex; justify-content: center; gap: 18px; margin-top: 12px; font-size: 12px; color: var(--muted); }
+.legenda i.lg { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -1px; margin-right: 4px; }
+.legenda i.lg.a { background: var(--green); }
+.legenda i.lg.v { background: #e8a59f; }
+
+.btn-copy { background: var(--green); color: #fff; }
+
+/* Kopieer-lijst in de sheet */
+.copy-list { display: flex; flex-direction: column; gap: 8px; margin: 6px 0 4px; }
+.copy-row { display: flex; align-items: center; gap: 11px; padding: 11px 13px; border: 1px solid var(--line); border-radius: 11px; background: #fafbf9; cursor: pointer; }
+.copy-row input { width: 20px; height: 20px; accent-color: var(--green); }
+
+/* ====== Sleep-kalender (time grid) — overgenomen uit onboarding-tool ====== */
+#tg-grid.tg {
+  display: grid; grid-template-columns: 30px repeat(7, 1fr); gap: 3px;
+  user-select: none; -webkit-user-select: none; touch-action: none; margin: 2px 0 4px;
+}
+.tg-day { position: relative; text-align: center; font-size: 11px; line-height: 1.15; padding-bottom: 3px; }
+.tg-day .dn { font-weight: 800; display: block; }
+.tg-day .dd { color: var(--muted); font-size: 9px; display: block; }
+.tg-day .rng { display: block; font-size: 8px; color: var(--green-dark); font-weight: 800; min-height: 11px; }
+.tg-day.isoff .rng { color: #b3261e; }
+.tg-day.tg-wknd .dn { color: #b8741f; }
+.tg-acts { display: flex; justify-content: center; gap: 2px; margin-top: 1px; }
+.tg-off, .tg-clear { border: none; background: none; cursor: pointer; font-size: 10px; line-height: 1; padding: 1px 2px; opacity: .5; }
+.tg-off:hover, .tg-clear:hover { opacity: 1; }
+.tg-time { font-size: 9px; color: var(--muted); text-align: right; padding-right: 3px; align-self: center; }
+.tg-cell { height: 17px; background: #eceeea; border-radius: 4px; cursor: pointer; }
+.tg-cell.tg-wknd { background: #f3e8d8; }
+.tg-cell.on { background: var(--green); box-shadow: inset 0 0 0 1px rgba(0,0,0,.05); }
+.tg-cell.off { background: repeating-linear-gradient(45deg, #f3c9c5, #f3c9c5 4px, #ecbcb7 4px, #ecbcb7 8px); }
+
 /* ====== Familie & Toppers ====== */
 .lb-hero {
   display: flex; align-items: center; justify-content: space-between;
