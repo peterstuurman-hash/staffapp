@@ -176,6 +176,7 @@ const state = {
   tab: 'beschikbaar',
   weekOffset: 0,
   rosterDay: 0,        // 0 = maandag
+  full: null,          // beeldvullend scherm: null | 'besch' | 'rode'
   // per weekOffset een object { dagIndex: 'a' (beschikbaar) | 'v' (vrije dag) }
   weken: {},
   grabbed: new Set(),  // gepakte rode plekken
@@ -497,63 +498,152 @@ function coachCard(p) {
     </div>`;
 }
 
-/* ---- 8a. Beschikbaarheid opgeven ---- */
+// Actieveld: altijd iets tonen — of de tekorten, of een bevestiging
+function actieVeld(p) {
+  const c = coachCard(p);
+  if (c) return c;
+  return `<div class="coach ok"><div class="coach-head">Je beschikbaarheid is op orde. Bedankt!</div></div>`;
+}
+
+/* ---- 8a. Beschikbaarheid — ACTIE-scherm (landing) ---- */
 function viewBeschikbaar() {
   const p = persona();
-  const off = state.weekOffset;
   const ingevuld = wekenIngevuld();
-  const sum = Cal.summary(weekDays(off));
+  const t = countTarget();
 
-  // Overzicht: 10 weken vooruit als pillen (gevuld = iets ingevuld, leeg = nog niets)
+  return `
+    <div class="screen-title">Wat moet je doen</div>
+    <p class="screen-lead">Je beschikbaarheid bepaalt of we je kunnen inroosteren. Dit is het belangrijkste in de app.</p>
+
+    ${actieVeld(p)}
+
+    <button class="btn cta-besch" id="open-editor">
+      <span class="cta-main">Beschikbaarheid opgeven</span>
+      <span class="cta-sub">${ingevuld} van ${GOAL_WEEKS} weken vooruit · lastige diensten ${t.l}/${TARGET.lastig}</span>
+    </button>
+    <p class="demo-tag">Prototype · niets wordt echt opgeslagen</p>`;
+}
+
+/* ---- Beeldvullend full-screen systeem (beschikbaarheid én rode plekken) ---- */
+function openFull(kind) {
+  state.full = kind;
+  document.getElementById('editor').classList.remove('hidden');
+  if (kind === 'rode') renderRodeFull();
+  else renderEditor();
+}
+function hideFull() {
+  state.full = null;
+  document.getElementById('editor').classList.add('hidden');
+}
+function openEditor() { openFull('besch'); }
+function closeEditor() { hideFull(); renderAll(); } // terug naar landing + statusbalk
+
+// Rode plekken beeldvullend
+function renderRodeFull() {
+  const el = document.getElementById('editor');
+  el.innerHTML = `
+    <div class="ed-top">
+      <button class="ed-back" id="ed-close">‹ Terug</button>
+      <div class="ed-counter">Rode plekken</div>
+    </div>
+    <div class="ed-body">${rodeInner(persona())}</div>`;
+  el.querySelector('#ed-close').onclick = () => { state.tab = 'beschikbaar'; hideFull(); renderAll(); };
+  el.querySelectorAll('[data-grab]').forEach(b => b.onclick = () => {
+    const r = RODE_PLEKKEN[+b.dataset.grab];
+    state.grabbed.add(r.dag + r.datum + r.rol);
+    toast('Dienst gepakt! ✅');
+    renderRodeFull();
+  });
+}
+
+function renderEditor() {
+  const off = state.weekOffset;
+  const t = countTarget();
+  const sum = Cal.summary(weekDays(off));
   const pillen = Array.from({ length: GOAL_WEEKS }, (_, w) => {
     const d = state.weken[w];
     const cls = isVakantieWeek(w) ? 'vrij' : (d && !Cal.isEmpty(d)) ? 'has' : 'leeg';
     return `<button class="wkpill ${cls} ${w === off ? 'cur' : ''}" data-pill="${w}">${weekNr(w)}</button>`;
   }).join('');
 
-  return `
-    <div class="screen-title">Beschikbaarheid</div>
-    <p class="screen-lead">Sleep per dag over de uren dat je kunt werken, of zet een dag op vrij. Vul één week en kopieer 'm vooruit.</p>
-
-    ${coachCard(p)}
-
-    <div class="weken-goal">
-      <div class="row between">
-        <b>${ingevuld} van ${GOAL_WEEKS} weken vooruit ingevuld</b>
-        <span class="small muted">tik een week ↓</span>
-      </div>
-      <div class="wkpills">${pillen}</div>
+  const el = document.getElementById('editor');
+  el.innerHTML = `
+    <div class="ed-top">
+      <button class="ed-back" id="ed-close">‹ Terug</button>
+      <div class="ed-counter ${t.l >= TARGET.lastig ? 'ok' : ''}" id="ed-counter">Lastige diensten ${t.l}/${TARGET.lastig}</div>
     </div>
-
-    <div class="card">
-      <div class="weeknav">
-        <button data-wk="-1" ${off === 0 ? 'disabled' : ''}>‹</button>
-        <span class="wk">Week ${weekNr(off)} · ${weekRange(off)}</span>
-        <button data-wk="1" ${off >= GOAL_WEEKS - 1 ? 'disabled' : ''}>›</button>
+    <div class="ed-body">
+      <div class="weken-goal">
+        <div class="row between">
+          <b>${wekenIngevuld()} van ${GOAL_WEEKS} weken vooruit</b>
+          <span class="small muted">tik een week ↓</span>
+        </div>
+        <div class="wkpills">${pillen}</div>
       </div>
 
-      <div class="lastig-quick">
-        <button class="lqbtn" data-lastig="sat">+ Zaterdagavond<span>17:00 – sluit</span></button>
-        <button class="lqbtn" data-lastig="sun">+ Zondagmiddag<span>12:00 – 19:00</span></button>
+      <div class="card">
+        <div class="weeknav">
+          <button data-wk="-1" ${off === 0 ? 'disabled' : ''}>‹</button>
+          <span class="wk">Week ${weekNr(off)} · ${weekRange(off)}</span>
+          <button data-wk="1" ${off >= GOAL_WEEKS - 1 ? 'disabled' : ''}>›</button>
+        </div>
+
+        <div class="lastig-quick">
+          <button class="lqbtn" data-lastig="sat">+ Zaterdagavond<span>17:00 – sluit</span></button>
+          <button class="lqbtn" data-lastig="sun">+ Zondagmiddag<span>12:00 – 19:00</span></button>
+        </div>
+
+        <div id="tg-grid"></div>
+
+        <div class="legenda">
+          <span><i class="lg a"></i> kan werken (${sum.kan})</span>
+          <span><i class="lg v"></i> vrije dag (${sum.vrij})</span>
+        </div>
+        <p class="small muted center" style="margin:8px 0 0">Sleep over de uren · ✕ wist · 🚫 = vrije dag</p>
       </div>
 
-      <div id="tg-grid"></div>
-
-      <div class="legenda">
-        <span><i class="lg a"></i> kan werken (${sum.kan})</span>
-        <span><i class="lg v"></i> vrije dag (${sum.vrij})</span>
-      </div>
-      <p class="small muted center" style="margin:8px 0 0">Sleep over de uren · ✕ wist · 🚫 = vrije dag</p>
+      <button class="btn btn-primary btn-block btn-copy" id="open-copy">📋 Kopieer week ${weekNr(off)} naar volgende weken</button>
     </div>
+    <div class="ed-foot">
+      <button class="btn btn-primary btn-block" id="ed-done">Klaar</button>
+    </div>`;
 
-    <button class="btn btn-primary btn-block btn-copy" id="open-copy">📋 Kopieer week ${weekNr(off)} naar volgende weken</button>
-    <button class="btn btn-ghost btn-block" id="save-besch" style="margin-top:10px">Opslaan</button>
-    <p class="demo-tag">Prototype · niets wordt echt opgeslagen</p>`;
+  wireEditor();
+}
+function wireEditor() {
+  const el = document.getElementById('editor');
+  const grid = el.querySelector('#tg-grid');
+  if (grid && window.Cal) {
+    Cal.renderBaseWeek(grid, weekDays(state.weekOffset), mondayFor(state.weekOffset), () => {
+      // teller + legenda live bijwerken zonder de hele editor te hertekenen (slepen blijft werken)
+      const t = countTarget();
+      const cnt = el.querySelector('#ed-counter');
+      if (cnt) { cnt.textContent = `Lastige diensten ${t.l}/${TARGET.lastig}`; cnt.classList.toggle('ok', t.l >= TARGET.lastig); }
+      const lg = el.querySelector('.legenda');
+      if (lg) { const s = Cal.summary(weekDays(state.weekOffset)); lg.innerHTML =
+        `<span><i class="lg a"></i> kan werken (${s.kan})</span><span><i class="lg v"></i> vrije dag (${s.vrij})</span>`; }
+    });
+  }
+  el.querySelectorAll('[data-wk]').forEach(b => b.onclick = () => {
+    state.weekOffset = Math.min(GOAL_WEEKS - 1, Math.max(0, state.weekOffset + (+b.dataset.wk)));
+    renderEditor();
+  });
+  el.querySelectorAll('[data-pill]').forEach(b => b.onclick = () => { state.weekOffset = +b.dataset.pill; renderEditor(); });
+  el.querySelectorAll('[data-lastig]').forEach(b => b.onclick = () => {
+    const days = weekDays(state.weekOffset);
+    if (b.dataset.lastig === 'sat') { days.sat = { available: true, from: '17:00', to: 'sluit', off: false }; toast('Zaterdagavond toegevoegd'); }
+    else { days.sun = { available: true, from: '12:00', to: '19:00', off: false }; toast('Zondagmiddag toegevoegd'); }
+    renderEditor();
+  });
+  const copyBtn = el.querySelector('#open-copy');
+  if (copyBtn) copyBtn.onclick = openCopySheet;
+  el.querySelector('#ed-close').onclick = closeEditor;
+  el.querySelector('#ed-done').onclick = () => { toast('Opgeslagen ✓ — bedankt!'); closeEditor(); };
 }
 
-/* ---- 8b. Rode plekken pakken ---- */
-function viewRode() {
-  const p = persona();
+/* ---- 8b. Rode plekken (beeldvullend) ---- */
+function viewRode() { return rodeInner(persona()); } // fallback (normaal via openFull)
+function rodeInner(p) {
   const zaak = userZaak(p);
   const topper = isTopper(p);
 
@@ -765,47 +855,9 @@ function viewFamilie() {
 function wireView() {
   const v = document.getElementById('view');
 
-  // Beschikbaarheid: monteer de sleep-kalender
-  const grid = v.querySelector('#tg-grid');
-  if (grid && window.Cal) {
-    Cal.renderBaseWeek(grid, weekDays(state.weekOffset), mondayFor(state.weekOffset), () => {
-      renderStatus();          // weken-vooruit in de balk live bijwerken
-      // alleen de legenda-tellertjes verversen, niet de hele view (anders verspringt het slepen)
-      const lg = v.querySelector('.legenda');
-      if (lg) { const s = Cal.summary(weekDays(state.weekOffset)); lg.innerHTML =
-        `<span><i class="lg a"></i> kan werken (${s.kan})</span><span><i class="lg v"></i> vrije dag (${s.vrij})</span>`; }
-    });
-  }
-  // Week vooruit/terug
-  v.querySelectorAll('[data-wk]').forEach(b => b.onclick = () => {
-    state.weekOffset = Math.min(GOAL_WEEKS - 1, Math.max(0, state.weekOffset + (+b.dataset.wk)));
-    renderView();
-  });
-  // Week kiezen via de pillen
-  v.querySelectorAll('[data-pill]').forEach(b => b.onclick = () => {
-    state.weekOffset = +b.dataset.pill; renderView();
-  });
-  // Snelknoppen voor de lastige diensten (za-avond / zo-middag)
-  v.querySelectorAll('[data-lastig]').forEach(b => b.onclick = () => {
-    const days = weekDays(state.weekOffset);
-    if (b.dataset.lastig === 'sat') { days.sat = { available: true, from: '17:00', to: 'sluit', off: false }; toast('Zaterdagavond toegevoegd'); }
-    else { days.sun = { available: true, from: '12:00', to: '19:00', off: false }; toast('Zondagmiddag toegevoegd'); }
-    renderStatus(); renderView();
-  });
-  // Kopiëren naar volgende weken
-  const copyBtn = v.querySelector('#open-copy');
-  if (copyBtn) copyBtn.onclick = openCopySheet;
-  const save = v.querySelector('#save-besch');
-  if (save) save.onclick = () => toast('Opgeslagen ✓ — bedankt!');
-
-  // Rode plekken: pakken
-  v.querySelectorAll('[data-grab]').forEach(b => b.onclick = () => {
-    const r = RODE_PLEKKEN[+b.dataset.grab];
-    state.grabbed.add(r.dag + r.datum + r.rol);
-    toast('Dienst gepakt! ✅');
-    renderTabs();
-    renderView();
-  });
+  // Beschikbaarheid landing → open de beeldvullende editor
+  const openEd = v.querySelector('#open-editor');
+  if (openEd) openEd.onclick = openEditor;
 
   // Rooster: dag kiezen
   v.querySelectorAll('[data-rd]').forEach(d => d.onclick = () => {
@@ -948,7 +1000,12 @@ function themeColor(theme) {
 /* =====================================================================
    11. NAVIGATIE + helpers
    ===================================================================== */
-function go(tab) { state.tab = tab; renderTabs(); renderView(); }
+function go(tab) {
+  state.tab = tab;
+  if (tab === 'rode') { renderTabs(); openFull('rode'); return; } // rode plekken beeldvullend
+  hideFull();
+  renderStatus(); renderTabs(); renderView();
+}
 
 function toast(msg) {
   const old = document.querySelector('.toast'); if (old) old.remove();
