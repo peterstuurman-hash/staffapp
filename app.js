@@ -246,6 +246,16 @@ function isLastigDag(key, day) {
   if (key === 'sun') return f <= 12 && t >= 19;
   return false;
 }
+// Tel lastige diensten over álle ingevulde weken (voor de teller in de editor)
+function countLastigAll() {
+  let l = 0;
+  for (let w = 0; w < GOAL_WEEKS; w++) {
+    const d = state.weken[w];
+    if (!d) continue;
+    for (const k of Cal.DAY_KEYS) if (isLastigDag(k, d[k])) l++;
+  }
+  return l;
+}
 function countTarget() {
   let d = 0, l = 0;
   for (let w = 0; w < TARGET.weken; w++) {
@@ -558,7 +568,7 @@ function renderRodeFull() {
 
 function renderEditor() {
   const off = state.weekOffset;
-  const t = countTarget();
+  const la = countLastigAll();
   const sum = Cal.summary(weekDays(off));
   const pillen = Array.from({ length: GOAL_WEEKS }, (_, w) => {
     const d = state.weken[w];
@@ -570,7 +580,7 @@ function renderEditor() {
   el.innerHTML = `
     <div class="ed-top">
       <div class="ed-title">Beschikbaarheid</div>
-      <div class="ed-counter ${t.l >= TARGET.lastig ? 'ok' : ''}" id="ed-counter">Lastige diensten ${t.l}/${TARGET.lastig}</div>
+      <div class="ed-counter ${la >= TARGET.lastig ? 'ok' : ''}" id="ed-counter">Lastige diensten ${la}/${TARGET.lastig}</div>
     </div>
     <div class="ed-body">
       <div class="wkpills">${pillen}</div>
@@ -608,9 +618,9 @@ function wireEditor() {
   if (grid && window.Cal) {
     Cal.renderBaseWeek(grid, weekDays(state.weekOffset), mondayFor(state.weekOffset), () => {
       // teller + legenda live bijwerken zonder de hele editor te hertekenen (slepen blijft werken)
-      const t = countTarget();
+      const la = countLastigAll();
       const cnt = el.querySelector('#ed-counter');
-      if (cnt) { cnt.textContent = `Lastige diensten ${t.l}/${TARGET.lastig}`; cnt.classList.toggle('ok', t.l >= TARGET.lastig); }
+      if (cnt) { cnt.textContent = `Lastige diensten ${la}/${TARGET.lastig}`; cnt.classList.toggle('ok', la >= TARGET.lastig); }
       const lg = el.querySelector('.legenda');
       if (lg) { const s = Cal.summary(weekDays(state.weekOffset)); lg.innerHTML =
         `<span><i class="lg a"></i> kan werken (${s.kan})</span><span><i class="lg v"></i> vrije dag (${s.vrij})</span>`; }
