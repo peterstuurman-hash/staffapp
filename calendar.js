@@ -11,15 +11,16 @@
 window.Cal = (function () {
   const DAY_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
   const DAY_SHORT = { mon: 'MA', tue: 'DI', wed: 'WO', thu: 'DO', fri: 'VR', sat: 'ZA', sun: 'ZO' };
-  const CFG = { GRID_START_HOUR: 9, GRID_END_HOUR: 24 }; // 9:00 t/m 00:00 (avonddiensten)
+  const CFG = { GRID_START_HOUR: 8, GRID_END_HOUR: 24 }; // 08:00 t/m sluit (laatste blok na 23:00)
 
   function addDays(d, n) { const r = new Date(d); r.setDate(r.getDate() + n); return r; }
   const dm = (d) => `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-  function hourLabel(h) { const hh = h >= 24 ? h - 24 : h; return `${String(hh).padStart(2, '0')}:00`; }
+  // Het blok ná 23:00 (uur 24) heet "sluit" i.p.v. 00:00
+  function hourLabel(h) { return h >= 24 ? 'sluit' : `${String(h).padStart(2, '0')}:00`; }
   function dayToSlots(day, start) {
     if (!day || !day.available) return null;
     const fromH = parseInt(day.from, 10);
-    const toH = day.to === '00:00' ? 24 : parseInt(day.to, 10);
+    const toH = (day.to === 'sluit' || day.to === '00:00') ? 24 : parseInt(day.to, 10);
     return { a: fromH - start, b: toH - start - 1 };
   }
   function emptyDays() {
@@ -158,7 +159,7 @@ window.Cal = (function () {
   // Snelvul-acties op een week
   function fill(days, what) {
     const set = (keys, val) => keys.forEach(k => {
-      if (val === 'a') days[k] = { available: true, from: '17:00', to: '00:00', off: false };
+      if (val === 'a') days[k] = { available: true, from: '17:00', to: 'sluit', off: false };
       else if (val === 'v') days[k] = { available: false, from: null, to: null, off: true };
       else days[k] = { available: false, from: null, to: null, off: false };
     });
