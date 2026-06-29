@@ -169,7 +169,9 @@ function startTicker() {
    3. APP-STATE
    --------------------------------------------------------------------- */
 const GOAL_WEEKS = 10;                 // we willen ~10 weken vooruit
-const BASE_MONDAY = new Date(2026, 5, 29); // ma 29 juni 2026 = week 27, offset 0
+// We beginnen 2 weken vooruit: de lopende week + de week erop zijn al ingeroosterd.
+const FIRST_WEEK = 29;                  // offset 0 = week 29
+const BASE_MONDAY = new Date(2026, 6, 13); // ma 13 juli 2026 = week 29
 
 const state = {
   personaIx: 0,
@@ -224,7 +226,7 @@ function wekenIngevuld() {
 function mondayFor(off) {
   const d = new Date(BASE_MONDAY); d.setDate(d.getDate() + off * 7); return d;
 }
-function weekNr(offset) { return 27 + offset; }
+function weekNr(offset) { return FIRST_WEEK + offset; }
 function dateFor(offset, day) {
   const d = new Date(BASE_MONDAY);
   d.setDate(d.getDate() + offset * 7 + day);
@@ -567,16 +569,11 @@ function renderEditor() {
   const el = document.getElementById('editor');
   el.innerHTML = `
     <div class="ed-top">
-      <button class="ed-back" id="ed-close">‹ Terug</button>
+      <div class="ed-title">Beschikbaarheid</div>
       <div class="ed-counter ${t.l >= TARGET.lastig ? 'ok' : ''}" id="ed-counter">Lastige diensten ${t.l}/${TARGET.lastig}</div>
     </div>
     <div class="ed-body">
-      <div class="weken-goal">
-        <div class="row between">
-          <b>${wekenIngevuld()} van ${GOAL_WEEKS} weken vooruit</b>
-        </div>
-        <div class="wkpills">${pillen}</div>
-      </div>
+      <div class="wkpills">${pillen}</div>
 
       <div class="card">
         <div class="weeknav">
@@ -632,7 +629,6 @@ function wireEditor() {
   });
   const copyBtn = el.querySelector('#open-copy');
   if (copyBtn) copyBtn.onclick = openCopySheet;
-  el.querySelector('#ed-close').onclick = closeEditor;
   el.querySelector('#ed-done').onclick = () => { toast('Opgeslagen ✓ — bedankt!'); closeEditor(); };
 }
 
