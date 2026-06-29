@@ -222,6 +222,31 @@ function dateFor(offset, day) {
 }
 function weekRange(offset) { return `${dateFor(offset, 0)} – ${dateFor(offset, 6)}`; }
 
+/* ---- Doel komende 4 weken: 12 diensten, waarvan 3 lastige -------------- */
+const TARGET = { weken: 4, diensten: 12, lastig: 3 };
+function hourNum(t) { if (t === 'sluit' || t === '00:00') return 24; const n = parseInt(t, 10); return isNaN(n) ? null : n; }
+// Lastige dienst = zaterdag 18:00–23:00 of zondag 12:00–19:00 volledig gedekt
+function isLastigDag(key, day) {
+  if (!day || !day.available) return false;
+  const f = hourNum(day.from), t = hourNum(day.to);
+  if (f == null || t == null) return false;
+  if (key === 'sat') return f <= 18 && t >= 23;
+  if (key === 'sun') return f <= 12 && t >= 19;
+  return false;
+}
+function countTarget() {
+  let d = 0, l = 0;
+  for (let w = 0; w < TARGET.weken; w++) {
+    const days = state.weken[w];
+    if (!days) continue;
+    for (const k of Cal.DAY_KEYS) {
+      const day = days[k];
+      if (day && day.available) { d++; if (isLastigDag(k, day)) l++; }
+    }
+  }
+  return { d, l, ok: d >= TARGET.diensten && l >= TARGET.lastig };
+}
+
 /* ---------------------------------------------------------------------
    4. MOCK-DATA voor de schermen
    --------------------------------------------------------------------- */
@@ -309,6 +334,9 @@ function renderStatus() {
   const s = statusOf(p);
   const bar = document.getElementById('status-bar');
   bar.className = 'statusbar ' + s.theme;
+  // Hele app-achtergrond kleurt mee met de status (blauw = duidelijk blauw)
+  const phone = document.querySelector('.phone');
+  if (phone) phone.className = 'phone bg-' + s.theme.replace('t-', '');
 
   // Voortgangsbalk = hoeveel weken vooruit opgegeven (geen punten/plek)
   const wv = wekenIngevuld();
@@ -398,8 +426,37 @@ function renderView() {
   wireView();
 }
 
+// Begeleiding: voortgang naar 12 diensten / 3 lastige in 4 weken
+function coachCard(p) {
+  const t = countTarget();
+  const focus = ['blauw', 'bijna_blauw', 'newbee'].includes(p.status);
+  if (t.ok && !focus) return ''; // doel gehaald en geen aandachtsgroep → scherm rustig houden
+  const dPct = Math.min(100, (t.d / TARGET.diensten) * 100);
+  const lPct = Math.min(100, (t.l / TARGET.lastig) * 100);
+  let kop;
+  if (t.ok) kop = 'Je voldoet aan het doel voor de komende 4 weken.';
+  else if (p.status === 'blauw') kop = 'Je staat op blauw. Vul dit aan om weer ingeroosterd te worden.';
+  else if (p.status === 'newbee') kop = 'Je eerste weken — bouw dit op zodat we je goed kunnen inplannen.';
+  else kop = 'Je doel voor de komende 4 weken.';
+  const cls = t.ok ? 'ok' : (p.status === 'blauw' ? 'blue' : '');
+  return `
+    <div class="coach ${cls}">
+      <div class="coach-head">${kop}</div>
+      <div class="coach-metric">
+        <div class="coach-lbl"><span>Diensten</span><b>${t.d} / ${TARGET.diensten}</b></div>
+        <div class="bar"><i style="width:${dPct}%"></i></div>
+      </div>
+      <div class="coach-metric">
+        <div class="coach-lbl"><span>Waarvan lastige diensten</span><b>${t.l} / ${TARGET.lastig}</b></div>
+        <div class="bar"><i style="width:${lPct}%"></i></div>
+      </div>
+      <p class="coach-note">Lastige dienst = zaterdag 18:00–23:00 of zondag 12:00–19:00.</p>
+    </div>`;
+}
+
 /* ---- 8a. Beschikbaarheid opgeven ---- */
 function viewBeschikbaar() {
+  const p = persona();
   const off = state.weekOffset;
   const ingevuld = wekenIngevuld();
   const sum = Cal.summary(weekDays(off));
@@ -413,7 +470,9 @@ function viewBeschikbaar() {
 
   return `
     <div class="screen-title">Beschikbaarheid</div>
-    <p class="screen-lead">Sleep per dag over de uren dat je <b>kunt werken</b>, of zet een dag op <b>🚫 vrij</b>. Vul één week en <b>kopieer 'm vooruit</b>.</p>
+    <p class="screen-lead">Sleep per dag over de uren dat je kunt werken, of zet een dag op vrij. Vul één week en kopieer 'm vooruit.</p>
+
+    ${coachCard(p)}
 
     <div class="weken-goal">
       <div class="row between">
@@ -553,7 +612,7 @@ function viewOverig() {
       <div class="stat"><b>${p.diensten}</b><span>lastige diensten</span></div>
     </div>
 
-    <div class="card" id="go-familie" style="cursor:pointer; background:linear-gradient(135deg,#fff7e8,#ffeccf); border-color:#f0d79a">
+    <div class="card" id="go-familie" style="cursor:pointer">
       <div class="row">
         <div style="font-size:30px">🏆</div>
         <div style="flex:1">
@@ -616,8 +675,8 @@ function viewFamilie() {
       <div class="fam-chips">${toppersHtml || '<span class="muted small">Nog geen toppers deze week.</span>'}</div>
     </div>
 
-    <div class="card" style="background:linear-gradient(135deg,#fff6ee,#ffeadb); border-color:#ffd5b0">
-      <h3>🌱 Onze newbees — heet ze welkom!</h3>
+    <div class="card">
+      <h3>🌱 Onze newbees</h3>
       <p class="small muted" style="margin:-4px 0 12px">De eerste 13 weken trekken we ze voor, zodat ze echt in de familie komen.</p>
       ${newbeesHtml || '<span class="muted small">Geen newbees op dit moment.</span>'}
     </div>
@@ -800,7 +859,7 @@ function openPersonaSheet() {
     seedWeken(persona());
     closeSheet();
     renderAll();
-    toast('Gewisseld van medewerker');
+    showPush();   // push bij 'inloggen' als deze medewerker
   });
 }
 
@@ -824,6 +883,38 @@ function toast(msg) {
 
 function renderAll() { renderStatus(); renderTabs(); renderView(); }
 
+/* ---- Push-melding bij "inloggen" (= medewerker openen) ---------------- */
+// Voor wie iets moet doen, verschijnt een push die confronteert.
+function pushFor(p) {
+  if (p.status === 'blauw')       return { title: 'Je hebt te weinig beschikbaarheid', msg: 'Geef nu op voor de komende 4 weken — anders kun je niet ingeroosterd worden.' };
+  if (p.status === 'bijna_blauw') return { title: 'Bijna blauw', msg: 'Geef snel beschikbaarheid op voor het komende rooster.' };
+  if (p.status === 'newbee')      return { title: 'Welkom bij Branding', msg: 'Geef je eerste weken op zodat we je kunnen inplannen.' };
+  return null;
+}
+function showPush() {
+  const old = document.getElementById('push'); if (old) old.remove();
+  const info = pushFor(persona());
+  if (!info) return;
+  const el = document.createElement('div');
+  el.id = 'push'; el.className = 'push';
+  el.innerHTML = `
+    <div class="push-card">
+      <div class="push-ic">B</div>
+      <div class="push-body">
+        <div class="push-app">Branding Staff<span>nu</span></div>
+        <div class="push-title">${info.title}</div>
+        <div class="push-msg">${info.msg}</div>
+      </div>
+      <button class="push-x" aria-label="sluiten">✕</button>
+    </div>`;
+  document.body.appendChild(el);
+  requestAnimationFrame(() => el.classList.add('in'));
+  el.querySelector('.push-x').onclick = (e) => { e.stopPropagation(); dismissPush(el); };
+  el.querySelector('.push-card').onclick = () => { dismissPush(el); go('beschikbaar'); };
+  setTimeout(() => dismissPush(el), 8000);
+}
+function dismissPush(el) { if (el && el.parentNode) { el.classList.remove('in'); setTimeout(() => el.remove(), 280); } }
+
 /* =====================================================================
    12. START
    ===================================================================== */
@@ -831,3 +922,4 @@ document.getElementById('persona-fab').onclick = openPersonaSheet;
 seedWeken(persona());
 renderAll();
 startTicker();   // live aftelklok
+showPush();      // push bij openen (inloggen)

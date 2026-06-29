@@ -70,9 +70,9 @@ html, body {
   overflow: hidden;
   transition: background .45s ease;
 }
-.statusbar::after { /* subtiele glans */
+.statusbar::after { /* heel subtiele glans */
   content: ""; position: absolute; inset: 0;
-  background: radial-gradient(120% 80% at 100% 0%, rgba(255,255,255,.18), transparent 60%);
+  background: radial-gradient(120% 80% at 100% 0%, rgba(255,255,255,.08), transparent 60%);
   pointer-events: none;
 }
 .sb-top { display: flex; align-items: center; gap: 12px; }
@@ -153,7 +153,7 @@ html, body {
 
 .card {
   background: var(--card); border: 1px solid var(--line);
-  border-radius: 18px; padding: 16px; margin-bottom: 14px; box-shadow: var(--shadow);
+  border-radius: 13px; padding: 16px; margin-bottom: 14px; box-shadow: var(--shadow);
 }
 .card.flat { box-shadow: none; }
 .card h3 { margin: 0 0 10px; font-size: 15px; }
@@ -167,8 +167,8 @@ html, body {
 /* Knoppen */
 .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-  cursor: pointer; border: none; border-radius: 13px; padding: 13px 18px;
-  font-size: 15px; font-weight: 700; text-decoration: none; color: var(--ink);
+  cursor: pointer; border: none; border-radius: 10px; padding: 13px 18px;
+  font-size: 15px; font-weight: 600; text-decoration: none; color: var(--ink);
   background: #eef0ec; transition: transform .06s ease, background .15s ease;
 }
 .btn:active { transform: scale(.97); }
@@ -181,8 +181,8 @@ html, body {
 /* Gamification: doel/streak-balk */
 .goal {
   display: flex; align-items: center; gap: 12px;
-  background: linear-gradient(135deg, #fff7e8, #fff1d6);
-  border: 1.5px solid #f0d79a; border-radius: 16px; padding: 12px 14px; margin-bottom: 14px;
+  background: #fafbf9;
+  border: 1px solid var(--line); border-left: 4px solid var(--green); border-radius: 12px; padding: 12px 14px; margin-bottom: 14px;
 }
 .goal-emoji { font-size: 26px; }
 .goal-txt { flex: 1; }
@@ -370,7 +370,7 @@ html, body {
 .hint-why { background: #eef4fb; border-left: 4px solid var(--blue); color: #33506f; padding: 10px 13px; border-radius: 8px; margin: 0 0 12px; font-size: 13px; }
 
 /* ====== Beschikbaarheid: weken-overzicht + snelknoppen ====== */
-.weken-goal { background: #eef6ef; border: 1.5px solid #cfe6d1; border-radius: 16px; padding: 12px 14px; margin-bottom: 14px; }
+.weken-goal { background: #fff; border: 1px solid var(--line); border-radius: 13px; padding: 13px 15px; margin-bottom: 14px; box-shadow: var(--shadow); }
 .wkpills { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
 .wkpill {
   flex: 1 1 0; min-width: 34px; border: none; cursor: pointer; border-radius: 9px;
@@ -445,3 +445,40 @@ html, body {
 
 .green-names { display: flex; flex-wrap: wrap; gap: 8px; }
 .green-name { font-size: 13px; font-weight: 600; color: var(--green-dark); background: #e9f5ea; border-radius: 999px; padding: 6px 12px; }
+
+/* ====== Achtergrond kleurt mee met de status ====== */
+.phone.bg-green, .phone.bg-alert { background: #eef3ee; }
+.phone.bg-blue   { background: #e3ebf6; }   /* duidelijk blauw voor wie blauw is */
+.phone.bg-sunrise{ background: #fbf1e9; }
+.phone.bg-purple { background: #eee9f7; }
+.phone.bg-gold   { background: #f6f1e3; }
+.phone.bg-slate  { background: #eceef1; }
+
+/* ====== Begeleiding (doel 4 weken) ====== */
+.coach { background: #fff; border: 1px solid var(--line); border-left: 4px solid var(--blue); border-radius: 12px; padding: 15px 16px; margin-bottom: 14px; box-shadow: var(--shadow); }
+.coach.blue { background: #f2f6fc; }
+.coach.ok { border-left-color: var(--green); }
+.coach-head { font-weight: 700; font-size: 14px; margin-bottom: 13px; line-height: 1.35; }
+.coach-metric { margin-bottom: 11px; }
+.coach-lbl { display: flex; justify-content: space-between; align-items: baseline; font-size: 13px; margin-bottom: 6px; }
+.coach-lbl b { font-weight: 800; font-size: 14px; }
+.coach .bar { height: 8px; border-radius: 999px; background: #e9ece9; overflow: hidden; }
+.coach .bar > i { display: block; height: 100%; background: var(--blue); border-radius: 999px; transition: width .5s ease; }
+.coach.ok .bar > i { background: var(--green); }
+.coach-note { font-size: 11.5px; color: var(--muted); margin: 8px 0 0; }
+
+/* ====== Push-melding (bij inloggen) ====== */
+.push { position: fixed; top: 0; left: 0; right: 0; display: flex; justify-content: center; z-index: 70; pointer-events: none; padding: 8px; padding-top: calc(8px + env(safe-area-inset-top)); }
+.push-card {
+  pointer-events: auto; width: 100%; max-width: 412px; background: #fff; border-radius: 16px;
+  box-shadow: var(--shadow-lg); display: flex; align-items: flex-start; gap: 12px; padding: 12px 14px; cursor: pointer;
+  transform: translateY(-140%); transition: transform .3s cubic-bezier(.2, .8, .2, 1);
+}
+.push.in .push-card { transform: translateY(0); }
+.push-ic { width: 38px; height: 38px; border-radius: 10px; background: #2f342f; color: #fff; font-weight: 800; display: grid; place-items: center; font-size: 17px; flex: 0 0 auto; }
+.push-body { flex: 1; min-width: 0; }
+.push-app { font-size: 11px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: .4px; display: flex; justify-content: space-between; }
+.push-app span { font-weight: 500; text-transform: none; letter-spacing: 0; }
+.push-title { font-weight: 700; font-size: 14px; margin-top: 2px; }
+.push-msg { font-size: 12.5px; color: #556; margin-top: 1px; }
+.push-x { border: none; background: none; color: var(--muted); font-size: 14px; cursor: pointer; padding: 2px 0 0 4px; }
