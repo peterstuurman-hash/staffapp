@@ -305,6 +305,7 @@ html, body {
   background: #ffffff; border-top: 1px solid var(--line);
   padding-bottom: env(safe-area-inset-bottom);
   box-shadow: 0 -4px 20px rgba(20,30,20,.05);
+  position: relative; z-index: 40; /* blijft boven het beeldvullende scherm */
 }
 .tab {
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
@@ -498,7 +499,9 @@ html, body {
 
 /* ====== Beeldvullend scherm (beschikbaarheid / rode plekken) ====== */
 .editor {
-  position: absolute; inset: 0; z-index: 30; background: var(--bg);
+  position: absolute; top: 0; left: 0; right: 0;
+  bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom)); /* onderbalk blijft zichtbaar */
+  z-index: 30; background: var(--bg);
   display: flex; flex-direction: column;
 }
 .ed-top {

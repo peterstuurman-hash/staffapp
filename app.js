@@ -513,7 +513,6 @@ function viewBeschikbaar() {
 
   return `
     <div class="screen-title">Wat moet je doen</div>
-    <p class="screen-lead">Je beschikbaarheid bepaalt of we je kunnen inroosteren. Dit is het belangrijkste in de app.</p>
 
     ${actieVeld(p)}
 
@@ -603,9 +602,7 @@ function renderEditor() {
       </div>
 
       <button class="btn btn-primary btn-block btn-copy" id="open-copy">📋 Kopieer week ${weekNr(off)} naar volgende weken</button>
-    </div>
-    <div class="ed-foot">
-      <button class="btn btn-primary btn-block" id="ed-done">Klaar</button>
+      <button class="btn btn-ghost btn-block" id="ed-done" style="margin-top:10px">Klaar</button>
     </div>`;
 
   wireEditor();
@@ -675,7 +672,6 @@ function rodeInner(p) {
   if (topper) {
     return `
       <div class="screen-title">Rode plekken</div>
-      <p class="screen-lead">Open diensten bij ${zaak}.</p>
       <div class="card flat" style="text-align:center; padding:22px 18px">
         <div style="font-size:15px; font-weight:700; margin-bottom:4px">Jij hebt je beschikbaarheid al top op orde 💪</div>
         <div class="small muted">We hoeven jou hier niets te vragen. Wil je toch een keer bijspringen? Hieronder staan de open diensten.</div>
@@ -686,7 +682,6 @@ function rodeInner(p) {
 
   return `
     <div class="screen-title">Rode plekken pakken</div>
-    <p class="screen-lead">Open diensten bij ${zaak} die nog gevuld moeten worden.</p>
     ${open.length ? `<div class="hot-ribbon">🔥 ${open.length} open dienst(en) — help het team en pak er één</div>` : '<p class="muted small">Op dit moment geen open diensten. 👍</p>'}
     ${mine.map(o => shift(o, true)).join('')}
     <p class="demo-tag">Prototype · diensten zijn fictief</p>`;
@@ -703,7 +698,6 @@ function viewIngeroosterd() {
 
   return `
     <div class="screen-title">Wanneer ben ik ingeroosterd?</div>
-    <p class="screen-lead">Jouw eigen diensten in één oogopslag.</p>
 
     <div class="next-shift">
       <div class="lbl">Eerstvolgende dienst</div>
@@ -764,7 +758,6 @@ function viewOverig() {
 
   return `
     <div class="screen-title">Overig</div>
-    <p class="screen-lead">Alles wat je verder nodig hebt.</p>
 
     <div class="stat-grid">
       <div class="stat"><b>${wekenIngevuld()}/${GOAL_WEEKS}</b><span>weken vooruit</span></div>
@@ -827,7 +820,6 @@ function viewFamilie() {
 
   return `
     <div class="screen-title">Familie &amp; Toppers</div>
-    <p class="screen-lead">Samen maken we Branding. Iedereen telt mee.</p>
 
     <div class="card">
       <h3>💪 Onze toppers</h3>
