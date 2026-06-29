@@ -467,27 +467,32 @@ function coachCard(p) {
       </div>`;
   }
   const t = countTarget();
+  const wv = wekenIngevuld();
   const focus = ['blauw', 'bijna_blauw', 'newbee'].includes(p.status);
-  if (t.ok && !focus) return ''; // doel gehaald en geen aandachtsgroep → scherm rustig houden
-  const dPct = Math.min(100, (t.d / TARGET.diensten) * 100);
-  const lPct = Math.min(100, (t.l / TARGET.lastig) * 100);
+
+  // Wat mist de medewerker nog? (nadruk op tekorten)
+  const missLastig = Math.max(0, TARGET.lastig - t.l);
+  const missDienst = Math.max(0, TARGET.diensten - t.d);
+  const missWeken = Math.max(0, GOAL_WEEKS - wv);
+  const klaar = missLastig === 0 && missDienst === 0 && missWeken === 0;
+  if (klaar && !focus) return ''; // niets te doen en geen aandachtsgroep → scherm rustig
+
   let kop;
-  if (t.ok) kop = 'Je voldoet aan het doel voor de komende 4 weken.';
-  else if (p.status === 'blauw') kop = 'Je staat op blauw. Vul dit aan om weer ingeroosterd te worden.';
-  else if (p.status === 'newbee') kop = 'Je eerste weken — bouw dit op zodat we je goed kunnen inplannen.';
-  else kop = 'Je doel voor de komende 4 weken.';
-  const cls = t.ok ? 'ok' : (p.status === 'blauw' ? 'blue' : '');
+  if (klaar) kop = 'Top — je beschikbaarheid is helemaal op orde. Bedankt!';
+  else if (p.status === 'blauw') kop = 'Je staat op blauw. Dit moet je nog doen om weer ingeroosterd te worden:';
+  else if (p.status === 'newbee') kop = 'Je eerste weken — dit heb je nog nodig:';
+  else kop = 'Dit heb je nog nodig:';
+
+  const todo = [];
+  if (missLastig) todo.push(`<li class="urgent"><b>Nog ${missLastig} lastige ${missLastig > 1 ? 'diensten' : 'dienst'}</b><span>zaterdagavond of zondagmiddag — gebruik de knoppen hieronder</span></li>`);
+  if (missDienst) todo.push(`<li>Nog <b>${missDienst} ${missDienst > 1 ? 'diensten' : 'dienst'}</b> erbij<span>nu ${t.d} van ${TARGET.diensten} in de komende 4 weken</span></li>`);
+  if (missWeken) todo.push(`<li>Geef <b>${missWeken} ${missWeken > 1 ? 'weken' : 'week'} langer vooruit</b> op<span>nu ${wv} van ${GOAL_WEEKS} weken ingevuld</span></li>`);
+
+  const cls = klaar ? 'ok' : (p.status === 'blauw' ? 'blue' : '');
   return `
     <div class="coach ${cls}">
       <div class="coach-head">${kop}</div>
-      <div class="coach-metric">
-        <div class="coach-lbl"><span>Diensten</span><b>${t.d} / ${TARGET.diensten}</b></div>
-        <div class="bar"><i style="width:${dPct}%"></i></div>
-      </div>
-      <div class="coach-metric">
-        <div class="coach-lbl"><span>Waarvan lastige diensten</span><b>${t.l} / ${TARGET.lastig}</b></div>
-        <div class="bar"><i style="width:${lPct}%"></i></div>
-      </div>
+      ${todo.length ? `<ul class="coach-todo">${todo.join('')}</ul>` : ''}
       <p class="coach-note">Lastige dienst = zaterdag 18:00–23:00 of zondag 12:00–19:00.</p>
     </div>`;
 }
@@ -525,6 +530,11 @@ function viewBeschikbaar() {
         <button data-wk="-1" ${off === 0 ? 'disabled' : ''}>‹</button>
         <span class="wk">Week ${weekNr(off)} · ${weekRange(off)}</span>
         <button data-wk="1" ${off >= GOAL_WEEKS - 1 ? 'disabled' : ''}>›</button>
+      </div>
+
+      <div class="lastig-quick">
+        <button class="lqbtn" data-lastig="sat">+ Zaterdagavond<span>17:00 – sluit</span></button>
+        <button class="lqbtn" data-lastig="sun">+ Zondagmiddag<span>12:00 – 19:00</span></button>
       </div>
 
       <div id="tg-grid"></div>
@@ -774,6 +784,13 @@ function wireView() {
   // Week kiezen via de pillen
   v.querySelectorAll('[data-pill]').forEach(b => b.onclick = () => {
     state.weekOffset = +b.dataset.pill; renderView();
+  });
+  // Snelknoppen voor de lastige diensten (za-avond / zo-middag)
+  v.querySelectorAll('[data-lastig]').forEach(b => b.onclick = () => {
+    const days = weekDays(state.weekOffset);
+    if (b.dataset.lastig === 'sat') { days.sat = { available: true, from: '17:00', to: 'sluit', off: false }; toast('Zaterdagavond toegevoegd'); }
+    else { days.sun = { available: true, from: '12:00', to: '19:00', off: false }; toast('Zondagmiddag toegevoegd'); }
+    renderStatus(); renderView();
   });
   // Kopiëren naar volgende weken
   const copyBtn = v.querySelector('#open-copy');
