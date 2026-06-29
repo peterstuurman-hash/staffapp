@@ -430,13 +430,6 @@ function viewBeschikbaar() {
         <button data-wk="1" ${off >= GOAL_WEEKS - 1 ? 'disabled' : ''}>›</button>
       </div>
 
-      <div class="quick">
-        <button class="qbtn a" data-quick="doordeweeks">Ma–vr kan</button>
-        <button class="qbtn a" data-quick="weekend">Weekend kan</button>
-        <button class="qbtn a" data-quick="alle-a">Hele week</button>
-        <button class="qbtn x" data-quick="wis">Wis</button>
-      </div>
-
       <div id="tg-grid"></div>
 
       <div class="legenda">
@@ -654,11 +647,6 @@ function wireView() {
         `<span><i class="lg a"></i> kan werken (${s.kan})</span><span><i class="lg v"></i> vrije dag (${s.vrij})</span>`; }
     });
   }
-  // Snelvul-knoppen
-  v.querySelectorAll('[data-quick]').forEach(b => b.onclick = () => {
-    Cal.fill(weekDays(state.weekOffset), b.dataset.quick);
-    renderStatus(); renderView();
-  });
   // Week vooruit/terug
   v.querySelectorAll('[data-wk]').forEach(b => b.onclick = () => {
     state.weekOffset = Math.min(GOAL_WEEKS - 1, Math.max(0, state.weekOffset + (+b.dataset.wk)));
