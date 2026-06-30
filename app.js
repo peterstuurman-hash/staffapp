@@ -146,22 +146,18 @@ const APP_START = Date.now();
 // Deadline = nu + 6 dagen, 21 uur en 5 minuten (telt live af)
 const BLAUW_DEADLINE = APP_START + ((6 * 24 + 21) * 3600 + 5 * 60) * 1000;
 
-function countdownSegs(ms) {
-  if (ms <= 0) return `<span class="cd-now">Je bent nu blauw 💧 — geef snel op!</span>`;
-  const s = Math.floor(ms / 1000);
-  const d = Math.floor(s / 86400);
-  const h = Math.floor((s % 86400) / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  const sec = s % 60;
-  const seg = (v, l) => `<span><b>${String(v).padStart(2, '0')}</b>${l}</span>`;
-  return seg(d, 'dagen') + seg(h, 'uur') + seg(m, 'min') + seg(sec, 'sec');
+// Compacte aftelklok: alleen het aantal dagen
+function countdownMini(ms) {
+  if (ms <= 0) return '⏳ je bent nu blauw';
+  const d = Math.floor(ms / 86400000);
+  return `⏳ nog ${d} ${d === 1 ? 'dag' : 'dagen'} tot blauw`;
 }
 
-// Eén timer die elke seconde de aftelklok bijwerkt (als die in beeld is)
+// Eén timer die de aftelklok bijwerkt (als die in beeld is)
 function startTicker() {
   setInterval(() => {
-    const el = document.getElementById('cd-segs');
-    if (el) el.innerHTML = countdownSegs(BLAUW_DEADLINE - Date.now());
+    const el = document.getElementById('cd-mini');
+    if (el) el.textContent = countdownMini(BLAUW_DEADLINE - Date.now());
   }, 1000);
 }
 
@@ -426,10 +422,7 @@ function renderStatus() {
 
   // "Bijna blauw" krijgt een live aftelklok i.p.v. een simpele chip
   const alertChip = (s.alert && p.blauwOver)
-    ? `<div class="cdbox">
-         <div class="cd-title">⏳ Aftelklok — dan word je <b>blauw</b></div>
-         <div class="cd-segs" id="cd-segs">${countdownSegs(BLAUW_DEADLINE - Date.now())}</div>
-       </div>`
+    ? `<div class="cd-mini" id="cd-mini">${countdownMini(BLAUW_DEADLINE - Date.now())}</div>`
     : (s.alert ? `<div class="sb-alertchip">⚠️ ${s.alert}</div>` : '');
 
   let msg = `
