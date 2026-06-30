@@ -904,21 +904,23 @@ function openCopySheet() {
   const off = state.weekOffset;
   const src = weekDays(off);
   const targets = [];
-  for (let w = 0; w < GOAL_WEEKS; w++) if (w !== off) targets.push(w);
+  for (let w = off + 1; w < GOAL_WEEKS; w++) targets.push(w); // alleen vooruit kopiëren
   const rows = targets.map(w => `
     <label class="copy-row">
       <input type="checkbox" checked data-copy="${w}"/>
       <span>Week ${weekNr(w)} <span class="small muted">(${weekRange(w)})</span></span>
     </label>`).join('');
+  const leeg = targets.length === 0;
   openSheet(`
-    <h2>📋 Kopieer week ${weekNr(off)}</h2>
-    <p class="sub">Zet dezelfde beschikbaarheid én vrije dagen in de gekozen weken. Zo geef je in één keer weken vooruit op.</p>
+    <h2>📋 Kopieer week ${weekNr(off)} vooruit</h2>
+    ${leeg ? '<p class="sub">Dit is de laatste week — niets om vooruit te kopiëren.</p>' : `
     <button class="btn btn-link" id="copy-all" style="margin-bottom:4px">Alles aan / uit</button>
     <div class="copy-list">${rows}</div>
-    <button class="btn btn-primary btn-block" id="copy-go" style="margin-top:6px">Kopieer naar aangevinkte weken</button>
+    <button class="btn btn-primary btn-block" id="copy-go" style="margin-top:6px">Kopieer naar aangevinkte weken</button>`}
     <button class="btn btn-ghost btn-block" id="copy-close" style="margin-top:10px">Sluit</button>`);
   const sheet = document.getElementById('sheet');
   sheet.querySelector('#copy-close').onclick = closeSheet;
+  if (leeg) return;
   sheet.querySelector('#copy-all').onclick = () => {
     const cbs = sheet.querySelectorAll('[data-copy]');
     const anyOff = [...cbs].some(c => !c.checked);
@@ -1029,12 +1031,13 @@ function renderAll() { renderStatus(); renderTabs(); renderView(); }
 /* ---- Push-melding bij "inloggen" (= medewerker openen) ---------------- */
 // Voor wie iets moet doen, verschijnt een push die confronteert.
 function pushFor(p) {
-  if (p.status === 'blauw')       return { title: 'Je hebt te weinig beschikbaarheid', msg: 'Geef nu op voor de komende 4 weken — anders kun je niet ingeroosterd worden.' };
-  if (p.status === 'bijna_blauw') return { title: 'Bijna blauw', msg: 'Geef snel beschikbaarheid op voor het komende rooster.' };
-  if (p.status === 'newbee')      return { title: 'Welkom bij Branding', msg: 'Geef je eerste weken op zodat we je kunnen inplannen.' };
+  const naam = p.naam.split(' ')[0]; // voornaam in de melding
+  if (p.status === 'blauw')       return { title: 'Te weinig beschikbaarheid', msg: `${naam}, geef nu op voor de komende 4 weken — anders kun je niet ingeroosterd worden.` };
+  if (p.status === 'bijna_blauw') return { title: 'Bijna blauw', msg: `${naam}, geef snel beschikbaarheid op voor het komende rooster.` };
+  if (p.status === 'newbee')      return { title: 'Welkom bij Branding', msg: `${naam}, geef je eerste weken op zodat we je kunnen inplannen.` };
   if (p.status === 'vakantie') {
     const v = vacInfo();
-    if (v.hasVac && v.emptyAfter > 0) return { title: 'Beschikbaarheid ná je vakantie', msg: `Je vakantie staat genoteerd. De ${v.emptyAfter} weken erna zijn nog leeg — geef ze op zodat je daarna weer ingeroosterd wordt.` };
+    if (v.hasVac && v.emptyAfter > 0) return { title: 'Beschikbaarheid ná je vakantie', msg: `${naam}, de ${v.emptyAfter} weken na je vakantie zijn nog leeg — geef ze op.` };
   }
   return null;
 }
