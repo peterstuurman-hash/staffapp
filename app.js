@@ -175,7 +175,7 @@ const BASE_MONDAY = new Date(2026, 6, 13); // ma 13 juli 2026 = week 29
 
 const state = {
   personaIx: 0,
-  tab: 'beschikbaar',
+  tab: 'home',
   weekOffset: 0,
   rosterDay: 0,        // 0 = maandag
   full: null,          // beeldvullend scherm: null | 'besch' | 'rode'
@@ -369,6 +369,7 @@ function badgesVoor(p) {
    5. TABS (de 5 hoofdkeuzes, in de gevraagde volgorde)
    --------------------------------------------------------------------- */
 const TABS = [
+  { id: 'home',        ic: '🏠', l: 'Start' },
   { id: 'beschikbaar', ic: '🗓️', l: 'Beschikbaar' },
   { id: 'rode',        ic: '🔥', l: 'Rode plekken', dot: true },
   { id: 'ingeroosterd',ic: '✅', l: 'Ingeroosterd' },
@@ -470,14 +471,59 @@ function renderView() {
   const v = document.getElementById('view');
   v.scrollTop = 0;
   v.innerHTML = ({
+    home: viewHome,
     beschikbaar: viewBeschikbaar,
     rode: viewRode,
     ingeroosterd: viewIngeroosterd,
     rooster: viewRooster,
     overig: viewOverig,
     familie: viewFamilie,
-  }[state.tab] || viewBeschikbaar)();
+  }[state.tab] || viewHome)();
   wireView();
+}
+
+/* ---- 8·0 Startscherm (mededelingen) ---- */
+// Persoonlijke mededelingen op basis van de status van de medewerker
+function mededelingen(p) {
+  const naam = p.naam.split(' ')[0];
+  const list = [];
+  if (p.status === 'bijna_blauw') list.push({ ic: '⏳', kl: 'amber', title: 'Je wordt bijna blauw', text: `${naam}, geef snel beschikbaarheid op voor het komende rooster.`, cta: 'Beschikbaarheid opgeven', tab: 'beschikbaar' });
+  if (p.status === 'blauw') list.push({ ic: '💧', kl: 'blue', title: 'Te weinig beschikbaarheid', text: `${naam}, geef op voor de komende 4 weken — anders kun je niet ingeroosterd worden.`, cta: 'Beschikbaarheid opgeven', tab: 'beschikbaar' });
+  if (p.status === 'newbee') list.push({ ic: '🌱', kl: 'sun', title: 'Welkom bij Branding', text: `${naam}, geef je eerste weken op zodat we je kunnen inplannen.`, cta: 'Beschikbaarheid opgeven', tab: 'beschikbaar' });
+  if (p.status === 'vakantie') list.push({ ic: '🏖️', kl: 'purple', title: 'Beschikbaarheid ná je vakantie', text: `${naam}, geef de weken na je vakantie op.`, cta: 'Beschikbaarheid opgeven', tab: 'beschikbaar' });
+  return list;
+}
+function viewHome() {
+  const p = persona();
+  const msgs = mededelingen(p);
+
+  let midden;
+  if (msgs.length) {
+    midden = msgs.map(m => `
+      <div class="mdl ${m.kl}">
+        <div class="mdl-ic">${m.ic}</div>
+        <div class="mdl-body">
+          <div class="mdl-title">${m.title}</div>
+          <div class="mdl-text">${m.text}</div>
+          ${m.cta ? `<button class="btn btn-primary mdl-cta" data-mdl="${m.tab}">${m.cta}</button>` : ''}
+        </div>
+      </div>`).join('');
+  } else {
+    // Niets te melden → schoon blok + eerstvolgende dienst
+    const d = MIJN_DIENSTEN[0];
+    midden = `
+      <div class="mdl-leeg">
+        <div class="mdl-leeg-ic">✓</div>
+        <div class="mdl-leeg-t">Niets te melden — je staat er goed voor.</div>
+      </div>
+      <div class="next-shift" style="margin-top:14px">
+        <div class="lbl">Eerstvolgende dienst</div>
+        <div class="big">${d.dag}</div>
+        <div class="cd">${d.tijd} · ${d.rol} · ${d.zaak}</div>
+      </div>`;
+  }
+
+  return `<div class="home">${midden}</div>`;
 }
 
 // Begeleiding: voortgang naar 12 diensten / 3 lastige in 4 weken
@@ -873,6 +919,9 @@ function wireView() {
   // Rooster geblokkeerd → naar beschikbaarheid
   const rbGo = v.querySelector('#rb-go');
   if (rbGo) rbGo.onclick = () => go('beschikbaar');
+
+  // Startscherm: mededeling-knoppen
+  v.querySelectorAll('[data-mdl]').forEach(b => b.onclick = () => go(b.dataset.mdl));
 
   // Overig: menu-items
   v.querySelectorAll('[data-overig]').forEach(m => m.onclick = () => {
