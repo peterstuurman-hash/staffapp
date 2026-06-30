@@ -456,6 +456,7 @@ function isGrabbed(r) { return state.grabbed.has(r.dag + r.datum + r.rol); }
 function renderView() {
   const v = document.getElementById('view');
   v.scrollTop = 0;
+  v.classList.toggle('view-flush', state.tab === 'beschikbaar'); // iframe vult het scherm
   v.innerHTML = ({
     beschikbaar: viewBeschikbaar,
     rode: viewRode,
@@ -517,21 +518,10 @@ function actieVeld(p) {
   return `<div class="coach ok"><div class="coach-head">Je beschikbaarheid is op orde. Bedankt!</div></div>`;
 }
 
-/* ---- 8a. Beschikbaarheid — ACTIE-scherm (landing) ---- */
+/* ---- 8a. Beschikbaarheid — opt-out app (ingebed) ---- */
 function viewBeschikbaar() {
-  const p = persona();
-  const ingevuld = wekenIngevuld();
-  const t = countTarget();
-
-  return `
-    <div class="screen-title">Wat moet je doen</div>
-
-    ${actieVeld(p)}
-
-    <button class="btn cta-besch" id="open-editor">
-      <span class="cta-main">Beschikbaarheid opgeven</span>
-      <span class="cta-sub">${ingevuld} van ${GOAL_WEEKS} weken vooruit · lastige diensten ${t.l}/${TARGET.lastig}</span>
-    </button>`;
+  // De opt-out beschikbaarheid-app vult dit scherm; statusbalk + onderbalk blijven.
+  return `<iframe class="besch-frame" src="./beschikbaarheid/index.html" title="Beschikbaarheid"></iframe>`;
 }
 
 /* ---- Beeldvullend full-screen systeem (beschikbaarheid én rode plekken) ---- */
