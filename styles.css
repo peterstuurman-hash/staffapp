@@ -413,9 +413,10 @@ html, body {
 .tg-day.tg-wknd .dn { color: #b8741f; }
 .tg-acts { display: flex; justify-content: center; gap: 4px; margin-top: 2px; }
 .tg-on, .tg-off { border: 1px solid var(--line); background: #fff; cursor: pointer; font-size: 11px; line-height: 1; padding: 3px 5px; border-radius: 7px; }
-.tg-on { background: var(--green); border-color: var(--green); color: #fff; }   /* groen = uitnodigend, ook bij lege dag */
+.tg-on { background: #fff; border-color: var(--green); color: var(--green); }   /* leeg = groene omtrek (uitnodigend, niet ingevuld) */
 .tg-off { border-color: #f0cecb; }
 .tg-on:active, .tg-off:active { transform: scale(.9); }
+.tg-day.fullon .tg-on { background: var(--green); border-color: var(--green); color: #fff; }  /* hele dag aan = vol groen */
 .tg-day.isoff .tg-on { background: #fff; border-color: var(--line); color: #c2c7c0; }  /* gedimd als de dag op vrij staat */
 .tg-day.isoff .tg-off { background: #e8a59f; border-color: #e8a59f; }
 .tg-time { font-size: 9px; color: var(--muted); text-align: right; padding-right: 3px; align-self: center; }
@@ -510,10 +511,11 @@ html, body {
   border-radius: 10px; padding: 10px 8px; font-size: 13px; font-weight: 700; line-height: 1.2; text-align: center;
 }
 .lqbtn span { display: block; font-size: 10.5px; font-weight: 600; opacity: .65; margin-top: 2px; }
-.lqbtn.lastig { border-color: var(--green); color: var(--green-dark); background: #f1f8f2; }
+.lqbtn.lastig { border-color: var(--green-dark); color: #fff; background: var(--green-dark); }
+.lqbtn.lastig span { opacity: .85; }
 .lqbtn.lastig::before { content: "⭐ "; }
 .lqbtn.on { background: #e7f3e8; border-color: var(--green); color: var(--green-dark); }
-.lqbtn.lastig.on { background: var(--green); color: #fff; }
+.lqbtn.lastig.on { background: var(--green-dark); color: #fff; box-shadow: inset 0 0 0 2px #fff, 0 0 0 2px var(--green-dark); }
 .lqbtn:active { transform: scale(.96); }
 
 .wknd-lock { background: #eef4fb; border: 1px dashed var(--blue); color: #33506f; border-radius: 12px; padding: 16px; text-align: center; font-size: 13.5px; font-weight: 600; margin-top: 4px; }

@@ -205,7 +205,8 @@ function isTopper(p) { return p.status === 'topper' || p.status === 'topper_zat'
 /* ---- Beschikbaarheid-helpers ---------------------------------------- */
 // Hoeveel weken iemand standaard al vooruit heeft staan (alleen voor de demo)
 function baselineWeken(p) {
-  return ({ topper_zat: 9, topper: 8, vakantie: 7, groen: 5, newbee: 3, bijna_blauw: 2, blauw: 1 })[p.status] || 0;
+  // matcht de status: blauw/rpp/dnd hebben (vrijwel) niets ingevuld
+  return ({ topper_zat: 9, topper: 8, vakantie: 7, groen: 5, newbee: 2, bijna_blauw: 1, blauw: 0 })[p.status] || 0;
 }
 // Vul de demo-beschikbaarheid bij het kiezen van een medewerker
 function seedWeken(p) {
