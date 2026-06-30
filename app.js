@@ -182,6 +182,7 @@ const state = {
   // per weekOffset een object { dagIndex: 'a' (beschikbaar) | 'v' (vrije dag) }
   weken: {},
   grabbed: new Set(),  // gepakte rode plekken
+  ob: { active: 'za', editOpen: false, confirmed: false, hookDone: false, week: null }, // opt-out beschikbaarheid
 };
 
 function persona() { return PERSONAS[state.personaIx]; }
@@ -456,7 +457,6 @@ function isGrabbed(r) { return state.grabbed.has(r.dag + r.datum + r.rol); }
 function renderView() {
   const v = document.getElementById('view');
   v.scrollTop = 0;
-  v.classList.toggle('view-flush', state.tab === 'beschikbaar'); // iframe vult het scherm
   v.innerHTML = ({
     beschikbaar: viewBeschikbaar,
     rode: viewRode,
@@ -518,10 +518,176 @@ function actieVeld(p) {
   return `<div class="coach ok"><div class="coach-head">Je beschikbaarheid is op orde. Bedankt!</div></div>`;
 }
 
-/* ---- 8a. Beschikbaarheid — opt-out app (ingebed) ---- */
+/* ====== 8a. Beschikbaarheid — opt-out (vanilla, ingebouwd) ====== */
+const OB = {
+  START: 7, END: 25, SPAN: 18, TIP: 17,
+  KEYS: ['ma', 'di', 'wo', 'do', 'vr', 'za', 'zo'],
+  SHORT: { ma: 'MA', di: 'DI', wo: 'WO', do: 'DO', vr: 'VR', za: 'ZA', zo: 'ZO' },
+  LONG: { ma: 'Maandag', di: 'Dinsdag', wo: 'Woensdag', do: 'Donderdag', vr: 'Vrijdag', za: 'Zaterdag', zo: 'Zondag' },
+};
+function obWeek() {
+  if (!state.ob.week) state.ob.week = OB.KEYS.reduce((w, k) => (w[k] = { start: 7, end: 25, off: false }, w), {});
+  return state.ob.week;
+}
+function obFmt(h) {
+  if (h === 24) return '00:00';
+  if (h === 25) return '01:00';
+  let hr = Math.floor(h); const mn = (h - hr) === 0.5 ? '30' : '00';
+  if (hr >= 24) hr -= 24;
+  return String(hr).padStart(2, '0') + ':' + mn;
+}
+function obLabel(w) {
+  if (w.off) return 'Niet beschikbaar';
+  const s7 = w.start === 7, e25 = w.end === 25;
+  if (s7 && e25) return 'Hele dag';
+  if (s7) return 'tot ' + obFmt(w.end);
+  if (e25) return 'vanaf ' + obFmt(w.start);
+  return obFmt(w.start) + ' – ' + obFmt(w.end);
+}
+const obHele = w => !w.off && w.start === 7 && w.end === 25;
+const obTot = w => !w.off && w.start === 7 && w.end === OB.TIP;
+const obVanaf = w => !w.off && w.start === OB.TIP && w.end === 25;
+const obCustom = w => !w.off && !obHele(w) && !obTot(w) && !obVanaf(w);
+const obPct = h => ((h - OB.START) / OB.SPAN) * 100;
+function obDate(k) { return dateFor(OB.KEYS.indexOf(k), 0); } // week 29 = offset 0
+
 function viewBeschikbaar() {
-  // De opt-out beschikbaarheid-app vult dit scherm; statusbalk + onderbalk blijven.
-  return `<iframe class="besch-frame" src="./beschikbaarheid/index.html" title="Beschikbaarheid"></iframe>`;
+  const o = state.ob, wk = obWeek(), win = wk[o.active];
+  const nonOff = OB.KEYS.filter(k => !wk[k].off).length;
+  const evening = OB.KEYS.filter(k => { const w = wk[k]; return !w.off && w.end === 25 && w.start >= 12; }).length;
+  const hookVisible = !o.hookDone && !(wk.do.start === OB.TIP && wk.do.end === 25 && !wk.do.off);
+
+  const strip = OB.KEYS.map(k => {
+    const w = wk[k], on = k === o.active;
+    const ps = obPct(w.start), pw = obPct(w.end) - obPct(w.start);
+    return `<button class="ob-day ${on ? 'on' : ''}" data-obday="${k}">
+      <span class="ob-dn ${w.off ? 'off' : ''}">${OB.SHORT[k]}</span>
+      <span class="ob-mini">${w.off ? '' : `<i style="left:${ps}%;width:${pw}%"></i>`}</span>
+    </button>`;
+  }).join('');
+
+  return `
+    <div class="ob">
+      <div class="ob-head">
+        <div class="ob-title">Beschikbaarheid <span>Week 29 · 13–19 jul</span></div>
+        <div class="ob-sub">Je staat de hele week beschikbaar. Pas aan wat niet klopt.</div>
+      </div>
+
+      ${hookVisible ? `
+      <div class="ob-hook">
+        <span class="dot"></span>
+        <div class="t">Donderdagavond — ${evening} van 4 ingevuld</div>
+        <button data-obhook>Spring bij</button>
+      </div>` : ''}
+
+      <div class="ob-strip">${strip}</div>
+
+      <div class="ob-card">
+        <div class="ob-cardhead">
+          <div class="ob-dayname">${OB.LONG[o.active]} ${obDate(o.active)}</div>
+          <div class="ob-winlabel ${win.off ? 'off' : ''}">${obLabel(win)}</div>
+        </div>
+
+        <div class="ob-chips">
+          <button class="ob-chip ${obHele(win) ? 'on' : ''}" data-obchip="hele">Hele dag</button>
+          <button class="ob-chip ${obTot(win) ? 'on' : ''}" data-obchip="tot">tot 17:00</button>
+          <button class="ob-chip ${obVanaf(win) ? 'on' : ''}" data-obchip="vanaf">vanaf 17:00</button>
+        </div>
+
+        <div class="ob-row2">
+          <button class="ob-btn" data-obkanniet>✕ Kan niet</button>
+          <button class="ob-btn ${obCustom(win) ? 'accent' : ''}" data-obedit ${win.off ? 'disabled' : ''}>${obCustom(win) ? 'Aangepast' : 'Bewerk tijden'} ${o.editOpen ? '⌃' : '⌄'}</button>
+        </div>
+
+        <div class="ob-edit" style="max-height:${(o.editOpen && !win.off) ? '260px' : '0'}">
+          <div class="ob-track" id="ob-track">
+            <div class="ob-band" style="left:${obPct(win.start)}%;width:${obPct(win.end) - obPct(win.start)}%"></div>
+            <div class="ob-h ob-h-start" data-obh="start" style="left:${obPct(win.start)}%"></div>
+            <div class="ob-h ob-h-end" data-obh="end" style="left:${obPct(win.end)}%"></div>
+          </div>
+          <div class="ob-ticks"><span>07:00</span><span>17:00</span><span>sluit</span></div>
+          <div class="ob-steppers">
+            <div class="ob-st"><div class="l">Begin</div><div class="c"><button data-obstep="start-">−</button><b id="ob-vstart">${obFmt(win.start)}</b><button data-obstep="start+">+</button></div></div>
+            <div class="ob-st"><div class="l">Einde</div><div class="c"><button data-obstep="end-">−</button><b id="ob-vend">${obFmt(win.end)}</b><button data-obstep="end+">+</button></div></div>
+          </div>
+          <div class="ob-microcopy">Sleep of tik. De planner krijgt exact deze tijden.</div>
+        </div>
+      </div>
+
+      <div class="ob-meter"><span class="ok">✓</span> <b>${nonOff}/7</b> dagen staan klaar in de database</div>
+      <button class="ob-confirm ${o.confirmed ? 'done' : ''}" data-obconfirm>${o.confirmed ? '✓ Week 29 bevestigd' : 'Bevestig week 29'}</button>
+      <div class="ob-foot">75% tikt niets aan — die staan al goed. De rest verzet één rand.</div>
+    </div>`;
+}
+
+// Interactie voor het opt-out scherm
+function wireBeschikbaar() {
+  const v = document.getElementById('view');
+  const o = state.ob, wk = obWeek();
+  const setWin = (key, start, end) => { wk[key] = { start, end, off: false }; o.confirmed = false; renderView(); };
+
+  v.querySelectorAll('[data-obday]').forEach(b => b.onclick = () => { o.active = b.dataset.obday; o.editOpen = false; renderView(); });
+  v.querySelectorAll('[data-obchip]').forEach(b => b.onclick = () => {
+    const t = b.dataset.obchip;
+    if (t === 'hele') setWin(o.active, 7, 25);
+    else if (t === 'tot') setWin(o.active, 7, OB.TIP);
+    else setWin(o.active, OB.TIP, 25);
+  });
+  const kn = v.querySelector('[data-obkanniet]');
+  if (kn) kn.onclick = () => { wk[o.active] = { start: 7, end: 25, off: true }; o.editOpen = false; o.confirmed = false; renderView(); };
+  const ed = v.querySelector('[data-obedit]');
+  if (ed) ed.onclick = () => { if (wk[o.active].off) return; o.editOpen = !o.editOpen; renderView(); };
+  const hook = v.querySelector('[data-obhook]');
+  if (hook) hook.onclick = () => { wk.do = { start: OB.TIP, end: 25, off: false }; o.active = 'do'; o.hookDone = true; o.confirmed = false; renderView(); };
+  v.querySelectorAll('[data-obstep]').forEach(b => b.onclick = () => {
+    const w = wk[o.active];
+    const which = b.dataset.obstep;
+    if (which === 'start-') w.start = Math.max(7, w.start - 0.5);
+    else if (which === 'start+') w.start = Math.min(w.end - 0.5, w.start + 0.5);
+    else if (which === 'end-') w.end = Math.max(w.start + 0.5, w.end - 0.5);
+    else w.end = Math.min(25, w.end + 0.5);
+    w.off = false; o.confirmed = false; renderView();
+  });
+  const cf = v.querySelector('[data-obconfirm]');
+  if (cf) cf.onclick = () => { o.confirmed = true; toast('Week 29 bevestigd ✓'); renderView(); };
+
+  obWireDrag();
+}
+
+// Sleep-handles voor de tijdbalk (in-place update, commit op pointerup)
+function obWireDrag() {
+  const track = document.getElementById('ob-track');
+  if (!track) return;
+  const wk = obWeek();
+  let drag = null;
+  const hourFromX = (x) => {
+    const r = track.getBoundingClientRect();
+    let f = Math.max(0, Math.min(1, (x - r.left) / r.width));
+    return Math.max(OB.START, Math.min(OB.END, Math.round((OB.START + f * OB.SPAN) * 2) / 2));
+  };
+  const paint = () => {
+    const w = wk[state.ob.active];
+    track.querySelector('.ob-band').style.left = obPct(w.start) + '%';
+    track.querySelector('.ob-band').style.width = (obPct(w.end) - obPct(w.start)) + '%';
+    track.querySelector('.ob-h-start').style.left = obPct(w.start) + '%';
+    track.querySelector('.ob-h-end').style.left = obPct(w.end) + '%';
+    const vs = document.getElementById('ob-vstart'); if (vs) vs.textContent = obFmt(w.start);
+    const ve = document.getElementById('ob-vend'); if (ve) ve.textContent = obFmt(w.end);
+    const wl = document.querySelector('.ob-winlabel'); if (wl) wl.textContent = obLabel(w);
+  };
+  track.querySelectorAll('[data-obh]').forEach(h => {
+    h.onpointerdown = (e) => { e.preventDefault(); drag = h.dataset.obh; try { h.setPointerCapture(e.pointerId); } catch (_) {} };
+    h.onpointermove = (e) => {
+      if (!drag) return;
+      const hr = hourFromX(e.clientX);
+      const w = wk[state.ob.active];
+      if (drag === 'start') w.start = Math.min(hr, w.end - 0.5);
+      else w.end = Math.max(hr, w.start + 0.5);
+      w.off = false; paint();
+    };
+    h.onpointerup = () => { if (!drag) return; drag = null; state.ob.confirmed = false; renderView(); };
+    h.onpointercancel = () => { drag = null; };
+  });
 }
 
 /* ---- Beeldvullend full-screen systeem (beschikbaarheid én rode plekken) ---- */
@@ -830,9 +996,8 @@ function viewFamilie() {
 function wireView() {
   const v = document.getElementById('view');
 
-  // Beschikbaarheid landing → open de beeldvullende editor
-  const openEd = v.querySelector('#open-editor');
-  if (openEd) openEd.onclick = openEditor;
+  // Beschikbaarheid (opt-out) interactie
+  if (state.tab === 'beschikbaar') wireBeschikbaar();
 
   // Rooster: dag kiezen
   v.querySelectorAll('[data-rd]').forEach(d => d.onclick = () => {
