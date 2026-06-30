@@ -603,7 +603,7 @@ function renderEditor() {
           <span><i class="lg a"></i> kan werken (${sum.kan})</span>
           <span><i class="lg v"></i> vrije dag (${sum.vrij})</span>
         </div>
-        <p class="small muted center" style="margin:8px 0 0">Sleep over de uren · ✕ wist · 🚫 = vrije dag</p>
+        <p class="small muted center" style="margin:8px 0 0">Sleep over de uren · ● hele dag · 🚫 vrij</p>
       </div>
 
       <button class="btn btn-primary btn-block btn-copy" id="open-copy">📋 Kopieer week ${weekNr(off)} naar volgende weken</button>

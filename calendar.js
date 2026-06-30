@@ -56,8 +56,8 @@ window.Cal = (function () {
         `<span class="dd">${dm(date)}</span>` +
         `<span class="rng" data-range="${key}"></span>` +
         `<div class="tg-acts">` +
+          `<button class="tg-on" data-allon="${key}" title="hele dag beschikbaar">●</button>` +
           `<button class="tg-off" data-off="${key}" title="vrije dag">🚫</button>` +
-          `<button class="tg-clear" data-clear="${key}" title="wissen">✕</button>` +
         `</div>`;
       container.appendChild(head);
     });
@@ -105,8 +105,10 @@ window.Cal = (function () {
         } else if (day.available) txt = `${day.from}–${day.to}`;
         span.textContent = txt;
         const head = span.parentElement;
+        const full = day.available && day.from === hourLabel(start) && day.to === 'sluit';
         head.classList.toggle('has', !!day.available && !day.off);
         head.classList.toggle('isoff', !!day.off);
+        head.classList.toggle('fullon', !!full); // groen stipje actief
       });
     }
 
@@ -139,16 +141,23 @@ window.Cal = (function () {
     container.addEventListener('pointercancel', commit);
 
     container.addEventListener('click', (e) => {
+      const onBtn = e.target.closest && e.target.closest('.tg-on');
       const offBtn = e.target.closest && e.target.closest('.tg-off');
-      const clrBtn = e.target.closest && e.target.closest('.tg-clear');
-      if (offBtn) {
-        const key = offBtn.dataset.off;
-        const wasOff = days[key].off;
-        days[key] = { available: false, from: null, to: null, off: !wasOff };
+      if (onBtn) {
+        // groen stipje: toggle hele dag beschikbaar (nog eens = weg)
+        const key = onBtn.dataset.allon;
+        const d = days[key];
+        const full = d.available && d.from === hourLabel(start) && d.to === 'sluit';
+        days[key] = full
+          ? { available: false, from: null, to: null, off: false }
+          : { available: true, from: hourLabel(start), to: 'sluit', off: false };
         paint(null); onChange();
-      } else if (clrBtn) {
-        const key = clrBtn.dataset.clear;
-        days[key] = { available: false, from: null, to: null, off: false };
+      } else if (offBtn) {
+        // vrij: toggle hele dag vrij (nog eens = weg)
+        const key = offBtn.dataset.off;
+        days[key] = days[key].off
+          ? { available: false, from: null, to: null, off: false }
+          : { available: false, from: null, to: null, off: true };
         paint(null); onChange();
       }
     });
