@@ -12,6 +12,10 @@ window.Cal = (function () {
   const DAY_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
   const DAY_SHORT = { mon: 'MA', tue: 'DI', wed: 'WO', thu: 'DO', fri: 'VR', sat: 'ZA', sun: 'ZO' };
   const CFG = { GRID_START_HOUR: 8, GRID_END_HOUR: 24 }; // 08:00 t/m sluit (laatste blok na 23:00)
+  // Compacte uren-as: tussenliggende uren overslaan zodat de dag op één scherm past
+  const SKIP = new Set([9, 10, 11, 14, 15, 16, 20, 21, 22]);
+  const HOURS = []; // [8,12,13,17,18,19,23]
+  for (let h = CFG.GRID_START_HOUR; h < CFG.GRID_END_HOUR; h++) if (!SKIP.has(h)) HOURS.push(h);
 
   function addDays(d, n) { const r = new Date(d); r.setDate(r.getDate() + n); return r; }
   const dm = (d) => `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}`;
@@ -63,43 +67,44 @@ window.Cal = (function () {
     });
 
     const cells = [];
-    for (let s = 0; s < nSlots; s++) {
-      container.appendChild(el('div', 'tg-time', hourLabel(start + s)));
+    HOURS.forEach((h) => {
+      container.appendChild(el('div', 'tg-time', hourLabel(h)));
       DAY_KEYS.forEach((key) => {
         const wknd = key === 'sat' || key === 'sun';
         const cell = el('div', 'tg-cell' + (wknd ? ' tg-wknd' : ''));
-        cell.dataset.day = key; cell.dataset.slot = String(s);
+        cell.dataset.day = key; cell.dataset.hour = String(h);
         container.appendChild(cell);
         cells.push(cell);
       });
-    }
+    });
 
-    // Per dag een Set van 'aan' uur-slots (afgeleid uit from/to bij eerste keer)
+    // Per dag een Set van 'aan' UREN (uit de zichtbare HOURS; afgeleid uit from/to)
     function slotsOf(day) {
       if (!day._slots) {
         const s = new Set();
         if (day.available && !day.off) {
-          const r = dayToSlots(day, start);
-          if (r) for (let i = Math.max(0, r.a); i <= Math.min(nSlots - 1, r.b); i++) s.add(i);
+          const fromH = parseInt(day.from, 10);
+          const toH = (day.to === 'sluit' || day.to === '00:00') ? 24 : parseInt(day.to, 10);
+          HOURS.forEach(h => { if (h >= fromH && h < toH) s.add(h); });
         }
         day._slots = s;
       }
       return day._slots;
     }
-    // from/to/available bijwerken vanuit de slots (gaten worden in het label overbrugd)
+    // from/to/available bijwerken vanuit de gekozen uren (gaten worden in het label overbrugd)
     function syncDay(day) {
       if (day.off) { day.available = false; day.from = null; day.to = null; return; }
       const arr = [...slotsOf(day)].sort((a, b) => a - b);
       if (!arr.length) { day.available = false; day.from = null; day.to = null; }
-      else { day.available = true; day.from = hourLabel(start + arr[0]); day.to = hourLabel(start + arr[arr.length - 1] + 1); }
+      else { day.available = true; day.from = hourLabel(arr[0]); day.to = hourLabel(arr[arr.length - 1] + 1); }
     }
 
     function paint() {
       for (const cell of cells) {
-        const key = cell.dataset.day, slot = +cell.dataset.slot;
+        const key = cell.dataset.day, h = +cell.dataset.hour;
         const day = days[key];
         cell.classList.toggle('off', !!day.off);
-        cell.classList.toggle('on', !day.off && slotsOf(day).has(slot));
+        cell.classList.toggle('on', !day.off && slotsOf(day).has(h));
       }
       updateHeaders();
     }
@@ -122,40 +127,40 @@ window.Cal = (function () {
     // Per-uur tekenen: tik = dat ene uur aan/uit, slepen = vegen (zelfde modus)
     let drag = null; // { dayKey, mode:'add'|'del' }
     function cellAt(x, y) { const node = document.elementFromPoint(x, y); return node && node.closest ? node.closest('.tg-cell') : null; }
-    function applySlot(key, slot) {
+    function applyHour(key, h) {
       const s = slotsOf(days[key]);
-      if (drag.mode === 'add') s.add(slot); else s.delete(slot);
+      if (drag.mode === 'add') s.add(h); else s.delete(h);
       syncDay(days[key]);
     }
     container.addEventListener('pointerdown', (e) => {
       const cell = e.target.closest && e.target.closest('.tg-cell');
       if (!cell) return;
       e.preventDefault();
-      const key = cell.dataset.day, slot = +cell.dataset.slot;
+      const key = cell.dataset.day, h = +cell.dataset.hour;
       if (days[key].off) { days[key].off = false; days[key]._slots = new Set(); } // 'vrij' eraf
-      const has = slotsOf(days[key]).has(slot);
+      const has = slotsOf(days[key]).has(h);
       drag = { dayKey: key, mode: has ? 'del' : 'add' }; // groen uur aantikken = alleen dat uur weg
-      applySlot(key, slot);
+      applyHour(key, h);
       try { container.setPointerCapture(e.pointerId); } catch (_) {}
       paint();
     });
     container.addEventListener('pointermove', (e) => {
       if (!drag) return;
       const cell = cellAt(e.clientX, e.clientY);
-      if (cell && cell.dataset.day === drag.dayKey) { applySlot(drag.dayKey, +cell.dataset.slot); paint(); }
+      if (cell && cell.dataset.day === drag.dayKey) { applyHour(drag.dayKey, +cell.dataset.hour); paint(); }
     });
     function commit() { if (!drag) return; drag = null; paint(); onChange(); }
     container.addEventListener('pointerup', commit);
     container.addEventListener('pointercancel', commit);
 
-    const allSlots = () => { const s = new Set(); for (let i = 0; i < nSlots; i++) s.add(i); return s; };
+    const allSlots = () => new Set(HOURS);
     container.addEventListener('click', (e) => {
       const onBtn = e.target.closest && e.target.closest('.tg-on');
       const offBtn = e.target.closest && e.target.closest('.tg-off');
       if (onBtn) {
         // groen stipje: toggle hele dag beschikbaar (nog eens = weg)
         const key = onBtn.dataset.allon;
-        const full = !days[key].off && slotsOf(days[key]).size === nSlots;
+        const full = !days[key].off && slotsOf(days[key]).size === HOURS.length;
         days[key].off = false;
         days[key]._slots = full ? new Set() : allSlots();
         syncDay(days[key]); paint(); onChange();
