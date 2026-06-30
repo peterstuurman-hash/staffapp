@@ -488,8 +488,7 @@ function coachCard(p) {
     if (!(v.hasVac && v.emptyAfter > 0)) return '';
     return `
       <div class="coach blue">
-        <div class="coach-head">Je vakantie staat genoteerd. Geef je beschikbaarheid op voor de weken ná je vakantie.</div>
-        <p class="coach-note">${v.emptyAfter} week(en) na je vakantie zijn nog niet ingevuld.</p>
+        <div class="coach-head">Geef je beschikbaarheid op voor de weken ná je vakantie.</div>
       </div>`;
   }
   const t = countTarget();
@@ -504,22 +503,20 @@ function coachCard(p) {
   if (klaar && !focus) return ''; // niets te doen en geen aandachtsgroep → scherm rustig
 
   let kop;
-  if (klaar) kop = 'Top — je beschikbaarheid is helemaal op orde. Bedankt!';
-  else if (p.status === 'blauw') kop = 'Je staat op blauw. Dit moet je nog doen om weer ingeroosterd te worden:';
-  else if (p.status === 'newbee') kop = 'Je eerste weken — dit heb je nog nodig:';
+  if (klaar) kop = 'Je beschikbaarheid is op orde.';
+  else if (p.status === 'blauw') kop = 'Je staat op blauw — dit heb je nog nodig:';
   else kop = 'Dit heb je nog nodig:';
 
   const todo = [];
-  if (missLastig) todo.push(`<li class="urgent"><b>Nog ${missLastig} lastige ${missLastig > 1 ? 'diensten' : 'dienst'}</b><span>zaterdagavond of zondagmiddag — gebruik de knoppen hieronder</span></li>`);
-  if (missDienst) todo.push(`<li>Nog <b>${missDienst} ${missDienst > 1 ? 'diensten' : 'dienst'}</b> erbij<span>nu ${t.d} van ${TARGET.diensten} in de komende 4 weken</span></li>`);
-  if (missWeken) todo.push(`<li>Geef <b>${missWeken} ${missWeken > 1 ? 'weken' : 'week'} langer vooruit</b> op<span>nu ${wv} van ${GOAL_WEEKS} weken ingevuld</span></li>`);
+  if (missLastig) todo.push(`<li class="urgent"><b>${missLastig} lastige ${missLastig > 1 ? 'diensten' : 'dienst'}</b></li>`);
+  if (missDienst) todo.push(`<li><b>${missDienst} ${missDienst > 1 ? 'diensten' : 'dienst'}</b> erbij <span>(${t.d}/${TARGET.diensten})</span></li>`);
+  if (missWeken) todo.push(`<li><b>${missWeken} ${missWeken > 1 ? 'weken' : 'week'}</b> langer vooruit <span>(${wv}/${GOAL_WEEKS})</span></li>`);
 
   const cls = klaar ? 'ok' : (p.status === 'blauw' ? 'blue' : '');
   return `
     <div class="coach ${cls}">
       <div class="coach-head">${kop}</div>
       ${todo.length ? `<ul class="coach-todo">${todo.join('')}</ul>` : ''}
-      <p class="coach-note">Lastige dienst = zaterdag 18:00–23:00 of zondag 12:00–19:00.</p>
     </div>`;
 }
 
@@ -616,7 +613,6 @@ function renderEditor() {
           <span><i class="lg a"></i> kan werken (${sum.kan})</span>
           <span><i class="lg v"></i> vrije dag (${sum.vrij})</span>
         </div>
-        <p class="small muted center" style="margin:8px 0 0">Sleep over de uren · ● hele dag · 🚫 vrij</p>
       </div>
 
       <button class="btn btn-primary btn-block btn-copy" id="open-copy">📋 Kopieer week ${weekNr(off)} naar volgende weken</button>
@@ -687,21 +683,16 @@ function rodeInner(p) {
       </div>`;
   };
 
-  // Toppers: niet promoten — rustige boodschap, diensten alleen als ze zelf willen
+  // Toppers: niet promoten — gewoon de open diensten, geen praatjes
   if (topper) {
     return `
       <div class="screen-title">Rode plekken</div>
-      <div class="card flat" style="text-align:center; padding:22px 18px">
-        <div style="font-size:15px; font-weight:700; margin-bottom:4px">Jij hebt je beschikbaarheid al top op orde 💪</div>
-        <div class="small muted">We hoeven jou hier niets te vragen. Wil je toch een keer bijspringen? Hieronder staan de open diensten.</div>
-      </div>
-      ${open.length ? open.map(o => shift(o, false)).join('') : '<p class="muted small center">Geen open diensten.</p>'}`;
+      ${open.length ? open.map(o => shift(o, false)).join('') : '<p class="muted small">Geen open diensten.</p>'}`;
   }
 
   return `
-    <div class="screen-title">Rode plekken pakken</div>
-    ${open.length ? `<div class="hot-ribbon">🔥 ${open.length} open dienst(en) — help het team en pak er één</div>` : '<p class="muted small">Op dit moment geen open diensten. 👍</p>'}
-    ${mine.map(o => shift(o, true)).join('')}`;
+    <div class="screen-title">Rode plekken</div>
+    ${mine.length ? mine.map(o => shift(o, true)).join('') : '<p class="muted small">Geen open diensten.</p>'}`;
 }
 
 /* ---- 8c. Wanneer ingeroosterd ---- */
@@ -751,9 +742,7 @@ function viewRooster() {
       <div class="card roster-block">
         <div class="rb-ic">🔒</div>
         <div class="rb-title">Jij staat niet op dit rooster</div>
-        <div class="rb-sub">${occ
-          ? 'Je werkt op afroep — je wordt niet standaard ingeroosterd.'
-          : 'Zorg dat je voldoende beschikbaarheid opgeeft, dan word je ingeroosterd.'}</div>
+        <div class="rb-sub">${occ ? 'Je werkt op afroep.' : 'Geef meer beschikbaarheid op.'}</div>
         ${occ ? '' : '<button class="btn btn-primary btn-block" id="rb-go" style="margin-top:14px">Beschikbaarheid opgeven</button>'}
       </div>`;
   }
