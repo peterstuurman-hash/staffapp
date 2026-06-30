@@ -738,6 +738,26 @@ function viewRooster() {
       ${d}<b>${data[i]}</b>
     </div>`).join('');
 
+  const head = `
+    <div class="screen-title">Rooster</div>
+    <p class="screen-lead">${DAGEN_LANG[state.rosterDay]} ${data[state.rosterDay]} juni · Branding</p>
+    <div class="daystrip">${strip}</div>`;
+
+  // Sta jij deze week op het rooster? Zo niet: geen teamrooster, wel een nudge.
+  const p = persona();
+  if (!p.roosterBeschikbaar) {
+    const occ = p.status === 'rpp' || p.status === 'dnd';
+    return `${head}
+      <div class="card roster-block">
+        <div class="rb-ic">🔒</div>
+        <div class="rb-title">Jij staat niet op dit rooster</div>
+        <div class="rb-sub">${occ
+          ? 'Je werkt op afroep — je wordt niet standaard ingeroosterd.'
+          : 'Zorg dat je voldoende beschikbaarheid opgeeft, dan word je ingeroosterd.'}</div>
+        ${occ ? '' : '<button class="btn btn-primary btn-block" id="rb-go" style="margin-top:14px">Beschikbaarheid opgeven</button>'}
+      </div>`;
+  }
+
   const rows = roosterVoor(state.rosterDay).map(r => `
     <div class="roster-row">
       <div class="time"><b>${r.tijd}</b><span>${r.uit}</span></div>
@@ -746,10 +766,7 @@ function viewRooster() {
       <div class="ic">${r.ic}</div>
     </div>`).join('');
 
-  return `
-    <div class="screen-title">Rooster</div>
-    <p class="screen-lead">${DAGEN_LANG[state.rosterDay]} ${data[state.rosterDay]} juni · Branding</p>
-    <div class="daystrip">${strip}</div>
+  return `${head}
     <div class="card flat" style="padding:6px 14px">${rows}</div>`;
 }
 
@@ -864,6 +881,9 @@ function wireView() {
     state.rosterDay = +d.dataset.rd;
     renderView();
   });
+  // Rooster geblokkeerd → naar beschikbaarheid
+  const rbGo = v.querySelector('#rb-go');
+  if (rbGo) rbGo.onclick = () => go('beschikbaar');
 
   // Overig: menu-items
   v.querySelectorAll('[data-overig]').forEach(m => m.onclick = () => {
