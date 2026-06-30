@@ -30,7 +30,7 @@ window.Cal = (function () {
   }
   function cloneDays(days) {
     const out = {};
-    for (const k of DAY_KEYS) out[k] = { ...(days[k] || { available: false, from: null, to: null, off: false }) };
+    for (const k of DAY_KEYS) { out[k] = { ...(days[k] || { available: false, from: null, to: null, off: false }) }; delete out[k]._slots; }
     return out;
   }
   function isEmpty(days) {
@@ -74,35 +74,42 @@ window.Cal = (function () {
       });
     }
 
-    function paint(drag) {
+    // Per dag een Set van 'aan' uur-slots (afgeleid uit from/to bij eerste keer)
+    function slotsOf(day) {
+      if (!day._slots) {
+        const s = new Set();
+        if (day.available && !day.off) {
+          const r = dayToSlots(day, start);
+          if (r) for (let i = Math.max(0, r.a); i <= Math.min(nSlots - 1, r.b); i++) s.add(i);
+        }
+        day._slots = s;
+      }
+      return day._slots;
+    }
+    // from/to/available bijwerken vanuit de slots (gaten worden in het label overbrugd)
+    function syncDay(day) {
+      if (day.off) { day.available = false; day.from = null; day.to = null; return; }
+      const arr = [...slotsOf(day)].sort((a, b) => a - b);
+      if (!arr.length) { day.available = false; day.from = null; day.to = null; }
+      else { day.available = true; day.from = hourLabel(start + arr[0]); day.to = hourLabel(start + arr[arr.length - 1] + 1); }
+    }
+
+    function paint() {
       for (const cell of cells) {
         const key = cell.dataset.day, slot = +cell.dataset.slot;
         const day = days[key];
-        let on = false, off = false;
-        if (day.off) {
-          off = true;
-        } else if (drag && drag.dayKey === key) {
-          const a = Math.min(drag.startSlot, drag.curSlot), b = Math.max(drag.startSlot, drag.curSlot);
-          on = slot >= a && slot <= b;
-        } else {
-          const r = dayToSlots(day, start);
-          on = r && slot >= r.a && slot <= r.b;
-        }
-        cell.classList.toggle('on', on);
-        cell.classList.toggle('off', off);
+        cell.classList.toggle('off', !!day.off);
+        cell.classList.toggle('on', !day.off && slotsOf(day).has(slot));
       }
-      updateHeaders(drag);
+      updateHeaders();
     }
-    function updateHeaders(drag) {
+    function updateHeaders() {
       DAY_KEYS.forEach((key) => {
         const span = container.querySelector(`[data-range="${key}"]`);
         const day = days[key];
         let txt = '';
         if (day.off) txt = '🚫 vrij';
-        else if (drag && drag.dayKey === key) {
-          const a = Math.min(drag.startSlot, drag.curSlot), b = Math.max(drag.startSlot, drag.curSlot);
-          txt = `${hourLabel(start + a)}–${hourLabel(start + b + 1)}`;
-        } else if (day.available) txt = `${day.from}–${day.to}`;
+        else if (day.available) txt = `${day.from}–${day.to}`;
         span.textContent = txt;
         const head = span.parentElement;
         const full = day.available && day.from === hourLabel(start) && day.to === 'sluit';
@@ -112,57 +119,57 @@ window.Cal = (function () {
       });
     }
 
-    let drag = null;
+    // Per-uur tekenen: tik = dat ene uur aan/uit, slepen = vegen (zelfde modus)
+    let drag = null; // { dayKey, mode:'add'|'del' }
     function cellAt(x, y) { const node = document.elementFromPoint(x, y); return node && node.closest ? node.closest('.tg-cell') : null; }
+    function applySlot(key, slot) {
+      const s = slotsOf(days[key]);
+      if (drag.mode === 'add') s.add(slot); else s.delete(slot);
+      syncDay(days[key]);
+    }
     container.addEventListener('pointerdown', (e) => {
       const cell = e.target.closest && e.target.closest('.tg-cell');
       if (!cell) return;
       e.preventDefault();
-      const key = cell.dataset.day;
-      if (days[key].off) days[key].off = false; // slepen heft 'vrij' op
-      drag = { dayKey: key, startSlot: +cell.dataset.slot, curSlot: +cell.dataset.slot };
+      const key = cell.dataset.day, slot = +cell.dataset.slot;
+      if (days[key].off) { days[key].off = false; days[key]._slots = new Set(); } // 'vrij' eraf
+      const has = slotsOf(days[key]).has(slot);
+      drag = { dayKey: key, mode: has ? 'del' : 'add' }; // groen uur aantikken = alleen dat uur weg
+      applySlot(key, slot);
       try { container.setPointerCapture(e.pointerId); } catch (_) {}
-      paint(drag);
+      paint();
     });
     container.addEventListener('pointermove', (e) => {
       if (!drag) return;
       const cell = cellAt(e.clientX, e.clientY);
-      if (cell && cell.dataset.day === drag.dayKey) { drag.curSlot = +cell.dataset.slot; paint(drag); }
+      if (cell && cell.dataset.day === drag.dayKey) { applySlot(drag.dayKey, +cell.dataset.slot); paint(); }
     });
-    function commit() {
-      if (!drag) return;
-      const a = Math.min(drag.startSlot, drag.curSlot), b = Math.max(drag.startSlot, drag.curSlot);
-      const day = days[drag.dayKey];
-      day.available = true; day.off = false;
-      day.from = hourLabel(start + a); day.to = hourLabel(start + b + 1);
-      drag = null; paint(null); onChange();
-    }
+    function commit() { if (!drag) return; drag = null; paint(); onChange(); }
     container.addEventListener('pointerup', commit);
     container.addEventListener('pointercancel', commit);
 
+    const allSlots = () => { const s = new Set(); for (let i = 0; i < nSlots; i++) s.add(i); return s; };
     container.addEventListener('click', (e) => {
       const onBtn = e.target.closest && e.target.closest('.tg-on');
       const offBtn = e.target.closest && e.target.closest('.tg-off');
       if (onBtn) {
         // groen stipje: toggle hele dag beschikbaar (nog eens = weg)
         const key = onBtn.dataset.allon;
-        const d = days[key];
-        const full = d.available && d.from === hourLabel(start) && d.to === 'sluit';
-        days[key] = full
-          ? { available: false, from: null, to: null, off: false }
-          : { available: true, from: hourLabel(start), to: 'sluit', off: false };
-        paint(null); onChange();
+        const full = !days[key].off && slotsOf(days[key]).size === nSlots;
+        days[key].off = false;
+        days[key]._slots = full ? new Set() : allSlots();
+        syncDay(days[key]); paint(); onChange();
       } else if (offBtn) {
         // vrij: toggle hele dag vrij (nog eens = weg)
         const key = offBtn.dataset.off;
-        days[key] = days[key].off
-          ? { available: false, from: null, to: null, off: false }
-          : { available: false, from: null, to: null, off: true };
-        paint(null); onChange();
+        const wasOff = days[key].off;
+        days[key]._slots = new Set();
+        days[key].off = !wasOff;
+        syncDay(days[key]); paint(); onChange();
       }
     });
 
-    paint(null);
+    paint();
   }
 
   // Snelvul-acties op een week
