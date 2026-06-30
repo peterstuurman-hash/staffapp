@@ -585,18 +585,28 @@ function actieVeld(p) {
 /* ---- 8a. Beschikbaarheid — ACTIE-scherm (landing) ---- */
 function viewBeschikbaar() {
   const p = persona();
-  const ingevuld = wekenIngevuld();
-  const t = countTarget();
+
+  // Weeknummers 29..38 met status; tik een week om die te openen
+  const pillen = Array.from({ length: GOAL_WEEKS }, (_, w) => {
+    const d = state.weken[w];
+    const cls = isVakantieWeek(w) ? 'vrij' : (d && !Cal.isEmpty(d)) ? 'has' : 'leeg';
+    return `<button class="wkpill ${cls}" data-week="${w}">${weekNr(w)}</button>`;
+  }).join('');
 
   return `
     <div class="screen-title">Wat moet je doen</div>
 
     ${actieVeld(p)}
 
-    <button class="btn cta-besch" id="open-editor">
-      <span class="cta-main">Beschikbaarheid opgeven</span>
-      <span class="cta-sub">${ingevuld} van ${GOAL_WEEKS} weken vooruit · lastige diensten ${t.l}/${TARGET.lastig}</span>
-    </button>`;
+    <div class="card">
+      <div class="row between" style="margin-bottom:10px">
+        <b>Jouw weken</b>
+        <span class="small muted">tik een week om op te geven</span>
+      </div>
+      <div class="wkpills">${pillen}</div>
+    </div>
+
+    <button class="btn btn-primary btn-block" id="open-editor">Beschikbaarheid opgeven</button>`;
 }
 
 /* ---- Beeldvullend full-screen systeem (beschikbaarheid én rode plekken) ---- */
@@ -919,6 +929,8 @@ function wireView() {
   // Beschikbaarheid landing → open de beeldvullende editor
   const openEd = v.querySelector('#open-editor');
   if (openEd) openEd.onclick = openEditor;
+  // Tik een weeknummer → open editor op die week
+  v.querySelectorAll('[data-week]').forEach(b => b.onclick = () => { state.weekOffset = +b.dataset.week; openEditor(); });
 
   // Rooster: dag kiezen
   v.querySelectorAll('[data-rd]').forEach(d => d.onclick = () => {
