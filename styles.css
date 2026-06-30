@@ -510,9 +510,10 @@ html, body {
   border-radius: 10px; padding: 10px 8px; font-size: 13px; font-weight: 700; line-height: 1.2; text-align: center;
 }
 .lqbtn span { display: block; font-size: 10.5px; font-weight: 600; opacity: .65; margin-top: 2px; }
-.lqbtn.lastig { border-color: #e6c878; }
+.lqbtn.lastig { border-color: var(--green); color: var(--green-dark); background: #f1f8f2; }
 .lqbtn.lastig::before { content: "⭐ "; }
 .lqbtn.on { background: #e7f3e8; border-color: var(--green); color: var(--green-dark); }
+.lqbtn.lastig.on { background: var(--green); color: #fff; }
 .lqbtn:active { transform: scale(.96); }
 
 .wknd-lock { background: #eef4fb; border: 1px dashed var(--blue); color: #33506f; border-radius: 12px; padding: 16px; text-align: center; font-size: 13.5px; font-weight: 600; margin-top: 4px; }
