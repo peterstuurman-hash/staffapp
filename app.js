@@ -182,7 +182,20 @@ const state = {
   // per weekOffset een object { dagIndex: 'a' (beschikbaar) | 'v' (vrije dag) }
   weken: {},
   grabbed: new Set(),  // gepakte rode plekken
+  wkndNudge: {},       // per week: weekend-nudge al getoond?
 };
+
+// Nudge: bij een lege week die met een doordeweekse dag begint → eerst het weekend
+function maybeWeekendNudge() {
+  const days = weekDays(state.weekOffset);
+  const weekend = days.sat.available || days.sun.available;
+  const weekday = ['mon', 'tue', 'wed', 'thu', 'fri'].some(k => days[k].available);
+  if (weekday && !weekend && !state.wkndNudge[state.weekOffset]) {
+    state.wkndNudge[state.weekOffset] = true;
+    toast('💡 Begin eerst met het weekend (za/zo)');
+  }
+  if (weekend) state.wkndNudge[state.weekOffset] = false; // weekend gevuld → reset
+}
 
 function persona() { return PERSONAS[state.personaIx]; }
 function statusOf(p) { return STATUS[p.status]; }
@@ -624,6 +637,8 @@ function wireEditor() {
       const lg = el.querySelector('.legenda');
       if (lg) { const s = Cal.summary(weekDays(state.weekOffset)); lg.innerHTML =
         `<span><i class="lg a"></i> kan werken (${s.kan})</span><span><i class="lg v"></i> vrije dag (${s.vrij})</span>`; }
+      // Nudge: begin eerst met het weekend (als een doordeweekse dag is gevuld terwijl za/zo nog leeg is)
+      maybeWeekendNudge();
     });
   }
   el.querySelectorAll('[data-wk]').forEach(b => b.onclick = () => {
