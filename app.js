@@ -182,7 +182,7 @@ const state = {
   // per weekOffset een object { dagIndex: 'a' (beschikbaar) | 'v' (vrije dag) }
   weken: {},
   grabbed: new Set(),  // gepakte rode plekken
-  ob: { active: 'za', editOpen: false, confirmed: false, hookDone: false, week: null }, // opt-out beschikbaarheid
+  ob: { weekNr: 29, active: 'za', editOpen: false, hookDone: false, weeks: {}, confirmed: {} }, // opt-out beschikbaarheid (per week)
 };
 
 function persona() { return PERSONAS[state.personaIx]; }
@@ -457,6 +457,9 @@ function isGrabbed(r) { return state.grabbed.has(r.dag + r.datum + r.rol); }
 function renderView() {
   const v = document.getElementById('view');
   v.scrollTop = 0;
+  // Beschikbaar = beeldvullend: statusbalk verbergen, alleen de onderbalk blijft
+  const sb = document.getElementById('status-bar');
+  if (sb) sb.style.display = state.tab === 'beschikbaar' ? 'none' : '';
   v.innerHTML = ({
     beschikbaar: viewBeschikbaar,
     rode: viewRode,
@@ -525,9 +528,15 @@ const OB = {
   SHORT: { ma: 'MA', di: 'DI', wo: 'WO', do: 'DO', vr: 'VR', za: 'ZA', zo: 'ZO' },
   LONG: { ma: 'Maandag', di: 'Dinsdag', wo: 'Woensdag', do: 'Donderdag', vr: 'Vrijdag', za: 'Zaterdag', zo: 'Zondag' },
 };
-function obWeek() {
-  if (!state.ob.week) state.ob.week = OB.KEYS.reduce((w, k) => (w[k] = { start: 7, end: 25, off: false }, w), {});
-  return state.ob.week;
+const OB_FIRST = 29, OB_COUNT = 10; // weken 29..38
+function obWeek(nr = state.ob.weekNr) {
+  if (!state.ob.weeks[nr]) state.ob.weeks[nr] = OB.KEYS.reduce((w, k) => (w[k] = { start: 7, end: 25, off: false }, w), {});
+  return state.ob.weeks[nr];
+}
+function obWeekHasException(nr) {
+  const w = state.ob.weeks[nr];
+  if (!w) return false; // nog niet aangeraakt = standaard volledig beschikbaar
+  return OB.KEYS.some(k => w[k].off || !(w[k].start === 7 && w[k].end === 25));
 }
 function obFmt(h) {
   if (h === 24) return '00:00';
@@ -549,13 +558,21 @@ const obTot = w => !w.off && w.start === 7 && w.end === OB.TIP;
 const obVanaf = w => !w.off && w.start === OB.TIP && w.end === 25;
 const obCustom = w => !w.off && !obHele(w) && !obTot(w) && !obVanaf(w);
 const obPct = h => ((h - OB.START) / OB.SPAN) * 100;
-function obDate(k) { return dateFor(OB.KEYS.indexOf(k), 0); } // week 29 = offset 0
+function obDate(k) { return dateFor(state.ob.weekNr - OB_FIRST, OB.KEYS.indexOf(k)); }
 
 function viewBeschikbaar() {
   const o = state.ob, wk = obWeek(), win = wk[o.active];
+  const off = o.weekNr - OB_FIRST;
+  const confirmed = !!o.confirmed[o.weekNr];
   const nonOff = OB.KEYS.filter(k => !wk[k].off).length;
   const evening = OB.KEYS.filter(k => { const w = wk[k]; return !w.off && w.end === 25 && w.start >= 12; }).length;
   const hookVisible = !o.hookDone && !(wk.do.start === OB.TIP && wk.do.end === 25 && !wk.do.off);
+
+  // Weeknummers (29..38): tik om die week te bewerken; stip = week heeft uitzonderingen
+  const weekpills = Array.from({ length: OB_COUNT }, (_, i) => {
+    const nr = OB_FIRST + i;
+    return `<button class="ob-wk ${nr === o.weekNr ? 'cur' : ''} ${obWeekHasException(nr) ? 'exc' : ''}" data-obwk="${nr}">${nr}</button>`;
+  }).join('');
 
   const strip = OB.KEYS.map(k => {
     const w = wk[k], on = k === o.active;
@@ -569,9 +586,11 @@ function viewBeschikbaar() {
   return `
     <div class="ob">
       <div class="ob-head">
-        <div class="ob-title">Beschikbaarheid <span>Week 29 · 13–19 jul</span></div>
+        <div class="ob-title">Beschikbaarheid <span>Week ${o.weekNr} · ${weekRange(off)}</span></div>
         <div class="ob-sub">Je staat de hele week beschikbaar. Pas aan wat niet klopt.</div>
       </div>
+
+      <div class="ob-weeks">${weekpills}</div>
 
       ${hookVisible ? `
       <div class="ob-hook">
@@ -615,7 +634,7 @@ function viewBeschikbaar() {
       </div>
 
       <div class="ob-meter"><span class="ok">✓</span> <b>${nonOff}/7</b> dagen staan klaar in de database</div>
-      <button class="ob-confirm ${o.confirmed ? 'done' : ''}" data-obconfirm>${o.confirmed ? '✓ Week 29 bevestigd' : 'Bevestig week 29'}</button>
+      <button class="ob-confirm ${confirmed ? 'done' : ''}" data-obconfirm>${confirmed ? '✓ Week ' + o.weekNr + ' bevestigd' : 'Bevestig week ' + o.weekNr}</button>
       <div class="ob-foot">75% tikt niets aan — die staan al goed. De rest verzet één rand.</div>
     </div>`;
 }
@@ -624,8 +643,10 @@ function viewBeschikbaar() {
 function wireBeschikbaar() {
   const v = document.getElementById('view');
   const o = state.ob, wk = obWeek();
-  const setWin = (key, start, end) => { wk[key] = { start, end, off: false }; o.confirmed = false; renderView(); };
+  const dirty = () => { o.confirmed[o.weekNr] = false; };
+  const setWin = (key, start, end) => { wk[key] = { start, end, off: false }; dirty(); renderView(); };
 
+  v.querySelectorAll('[data-obwk]').forEach(b => b.onclick = () => { o.weekNr = +b.dataset.obwk; o.editOpen = false; renderView(); });
   v.querySelectorAll('[data-obday]').forEach(b => b.onclick = () => { o.active = b.dataset.obday; o.editOpen = false; renderView(); });
   v.querySelectorAll('[data-obchip]').forEach(b => b.onclick = () => {
     const t = b.dataset.obchip;
@@ -634,11 +655,11 @@ function wireBeschikbaar() {
     else setWin(o.active, OB.TIP, 25);
   });
   const kn = v.querySelector('[data-obkanniet]');
-  if (kn) kn.onclick = () => { wk[o.active] = { start: 7, end: 25, off: true }; o.editOpen = false; o.confirmed = false; renderView(); };
+  if (kn) kn.onclick = () => { wk[o.active] = { start: 7, end: 25, off: true }; o.editOpen = false; dirty(); renderView(); };
   const ed = v.querySelector('[data-obedit]');
   if (ed) ed.onclick = () => { if (wk[o.active].off) return; o.editOpen = !o.editOpen; renderView(); };
   const hook = v.querySelector('[data-obhook]');
-  if (hook) hook.onclick = () => { wk.do = { start: OB.TIP, end: 25, off: false }; o.active = 'do'; o.hookDone = true; o.confirmed = false; renderView(); };
+  if (hook) hook.onclick = () => { wk.do = { start: OB.TIP, end: 25, off: false }; o.active = 'do'; o.hookDone = true; dirty(); renderView(); };
   v.querySelectorAll('[data-obstep]').forEach(b => b.onclick = () => {
     const w = wk[o.active];
     const which = b.dataset.obstep;
@@ -646,10 +667,10 @@ function wireBeschikbaar() {
     else if (which === 'start+') w.start = Math.min(w.end - 0.5, w.start + 0.5);
     else if (which === 'end-') w.end = Math.max(w.start + 0.5, w.end - 0.5);
     else w.end = Math.min(25, w.end + 0.5);
-    w.off = false; o.confirmed = false; renderView();
+    w.off = false; dirty(); renderView();
   });
   const cf = v.querySelector('[data-obconfirm]');
-  if (cf) cf.onclick = () => { o.confirmed = true; toast('Week 29 bevestigd ✓'); renderView(); };
+  if (cf) cf.onclick = () => { o.confirmed[o.weekNr] = true; toast('Week ' + o.weekNr + ' bevestigd ✓'); renderView(); };
 
   obWireDrag();
 }
