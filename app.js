@@ -555,8 +555,17 @@ function coachCard(p) {
 
   const todo = [];
   if (missLastig) todo.push(`<li class="urgent"><b>${missLastig} lastige ${missLastig > 1 ? 'diensten' : 'dienst'}</b></li>`);
-  if (missDienst) todo.push(`<li><b>${missDienst} ${missDienst > 1 ? 'diensten' : 'dienst'}</b> erbij <span>(${t.d}/${TARGET.diensten})</span></li>`);
-  if (missWeken) todo.push(`<li><b>${missWeken} ${missWeken > 1 ? 'weken' : 'week'}</b> langer vooruit <span>(${wv}/${GOAL_WEEKS})</span></li>`);
+  if (missDienst) todo.push(`<li><b>${missDienst} ${missDienst > 1 ? 'diensten' : 'dienst'}</b> erbij</li>`);
+  if (missWeken) {
+    // concrete ontbrekende weken noemen i.p.v. "9/10"
+    const leeg = [];
+    for (let w = 0; w < GOAL_WEEKS; w++) { const d = state.weken[w]; if (!d || Cal.isEmpty(d)) leeg.push(weekNr(w)); }
+    let wkTxt;
+    if (leeg.length === 1) wkTxt = `week ${leeg[0]}`;
+    else if (leeg[leeg.length - 1] - leeg[0] === leeg.length - 1) wkTxt = `week ${leeg[0]} t/m ${leeg[leeg.length - 1]}`;
+    else wkTxt = 'week ' + leeg.join(', ');
+    todo.push(`<li>Geef nu ook <b>${wkTxt}</b> op</li>`);
+  }
 
   const cls = klaar ? 'ok' : (p.status === 'blauw' ? 'blue' : '');
   return `
