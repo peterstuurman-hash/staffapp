@@ -502,14 +502,20 @@ html, body {
 .coach-todo li.urgent::before { content: "!"; color: var(--red); font-weight: 800; }
 .coach-todo li.urgent span { color: #a8554f; }
 
-/* Snelknoppen lastige diensten */
-.lastig-quick { display: flex; gap: 8px; margin: 12px 0 4px; }
+/* Weekend-snelknoppen (4 vaste diensten) */
+.wknd-head { font-size: 12.5px; font-weight: 800; color: var(--green-dark); margin: 12px 0 8px; }
+.weekend-quick { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 12px 0 12px; }
 .lqbtn {
-  flex: 1; cursor: pointer; border: 1.5px solid #cdbce8; background: #f6f2fc; color: #5b4791;
-  border-radius: 10px; padding: 9px 8px; font-size: 12.5px; font-weight: 700; line-height: 1.2; text-align: center;
+  cursor: pointer; border: 1.5px solid var(--line); background: #fff; color: var(--ink);
+  border-radius: 10px; padding: 10px 8px; font-size: 13px; font-weight: 700; line-height: 1.2; text-align: center;
 }
-.lqbtn span { display: block; font-size: 10.5px; font-weight: 600; opacity: .8; margin-top: 2px; }
+.lqbtn span { display: block; font-size: 10.5px; font-weight: 600; opacity: .65; margin-top: 2px; }
+.lqbtn.lastig { border-color: #e6c878; }
+.lqbtn.lastig::before { content: "⭐ "; }
+.lqbtn.on { background: #e7f3e8; border-color: var(--green); color: var(--green-dark); }
 .lqbtn:active { transform: scale(.96); }
+
+.wknd-lock { background: #eef4fb; border: 1px dashed var(--blue); color: #33506f; border-radius: 12px; padding: 16px; text-align: center; font-size: 13.5px; font-weight: 600; margin-top: 4px; }
 
 /* ====== Grote call-to-action op het actie-scherm ====== */
 .cta-besch {

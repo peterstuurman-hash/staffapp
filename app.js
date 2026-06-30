@@ -250,6 +250,32 @@ function weekRange(offset) { return `${dateFor(offset, 0)} – ${dateFor(offset,
 /* ---- Doel komende 4 weken: 12 diensten, waarvan 3 lastige -------------- */
 const TARGET = { weken: 4, diensten: 12, lastig: 3 };
 function hourNum(t) { if (t === 'sluit' || t === '00:00') return 24; const n = parseInt(t, 10); return isNaN(n) ? null : n; }
+function hourTxt(h) { return h >= 24 ? 'sluit' : String(h).padStart(2, '0') + ':00'; }
+
+/* ---- Weekenddiensten (blauw moet hiermee beginnen) -------------------- */
+const WEEKEND = [
+  { day: 'fri', from: 17, to: 24, label: 'Vrijdagavond', sub: '17:00 – sluit' },
+  { day: 'sat', from: 7,  to: 17, label: 'Zaterdag overdag', sub: '07:00 – 17:00' },
+  { day: 'sat', from: 17, to: 24, label: 'Zaterdagavond', sub: '17:00 – sluit', lastig: true },
+  { day: 'sun', from: 12, to: 19, label: 'Zondagmiddag', sub: '12:00 – 19:00', lastig: true },
+];
+function dayRange(d) { return (!d || d.off || !d.available) ? null : [hourNum(d.from), hourNum(d.to)]; }
+function wkndActive(w, days) { const r = dayRange(days[w.day]); return !!r && r[0] <= w.from && r[1] >= w.to; }
+function toggleWeekend(w) {
+  const days = weekDays(state.weekOffset), d = days[w.day], r = dayRange(d);
+  const active = !!r && r[0] <= w.from && r[1] >= w.to;
+  if (active) { // dit blok eraf trimmen
+    let [a, b] = r;
+    if (w.from <= a) a = w.to; else if (w.to >= b) b = w.from;
+    days[w.day] = (a >= b) ? { available: false, from: null, to: null, off: false }
+                           : { available: true, off: false, from: hourTxt(a), to: hourTxt(b) };
+  } else { // dit blok erbij (samenvoegen tot aaneengesloten venster)
+    const a = r ? Math.min(r[0], w.from) : w.from, b = r ? Math.max(r[1], w.to) : w.to;
+    days[w.day] = { available: true, off: false, from: hourTxt(a), to: hourTxt(b) };
+  }
+}
+function weekHasWeekend() { const days = weekDays(state.weekOffset); return ['fri', 'sat', 'sun'].some(k => days[k].available); }
+
 // Lastige dienst = zaterdag 18:00–23:00 of zondag 12:00–19:00 volledig gedekt
 function isLastigDag(key, day) {
   if (!day || !day.available) return false;
@@ -651,6 +677,20 @@ function renderEditor() {
     return `<button class="wkpill ${cls} ${w === off ? 'cur' : ''}" data-pill="${w}">${weekNr(w)}</button>`;
   }).join('');
 
+  const blue = persona().status === 'blauw';
+  const days = weekDays(off);
+  const wkndBtns = WEEKEND.map((w, i) =>
+    `<button class="lqbtn ${wkndActive(w, days) ? 'on' : ''} ${w.lastig ? 'lastig' : ''}" data-wknd="${i}">${w.label}<span>${w.sub}</span></button>`
+  ).join('');
+  // Blauw: verplicht eerst het weekend; pas daarna de rest van de week
+  const gridBlock = (blue && !weekHasWeekend())
+    ? `<div class="wknd-lock">🔒 Geef eerst je weekend op. Daarna kun je de rest van de week invullen.</div>`
+    : `<div id="tg-grid"></div>
+       <div class="legenda">
+         <span><i class="lg a"></i> kan werken (${sum.kan})</span>
+         <span><i class="lg v"></i> vrije dag (${sum.vrij})</span>
+       </div>`;
+
   const el = document.getElementById('editor');
   el.innerHTML = `
     <div class="ed-top">
@@ -667,17 +707,10 @@ function renderEditor() {
           <button data-wk="1" ${off >= GOAL_WEEKS - 1 ? 'disabled' : ''}>›</button>
         </div>
 
-        <div class="lastig-quick">
-          <button class="lqbtn" data-lastig="sat">+ Zaterdagavond<span>17:00 – sluit</span></button>
-          <button class="lqbtn" data-lastig="sun">+ Zondagmiddag<span>12:00 – 19:00</span></button>
-        </div>
+        ${blue ? '<div class="wknd-head">Begin met het weekend ⭐ = lastige dienst</div>' : ''}
+        <div class="weekend-quick">${wkndBtns}</div>
 
-        <div id="tg-grid"></div>
-
-        <div class="legenda">
-          <span><i class="lg a"></i> kan werken (${sum.kan})</span>
-          <span><i class="lg v"></i> vrije dag (${sum.vrij})</span>
-        </div>
+        ${gridBlock}
       </div>
 
       <button class="btn btn-primary btn-block btn-copy" id="open-copy">📋 Kopieer week ${weekNr(off)} naar volgende weken</button>
@@ -707,10 +740,8 @@ function wireEditor() {
     renderEditor();
   });
   el.querySelectorAll('[data-pill]').forEach(b => b.onclick = () => { state.weekOffset = +b.dataset.pill; renderEditor(); });
-  el.querySelectorAll('[data-lastig]').forEach(b => b.onclick = () => {
-    const days = weekDays(state.weekOffset);
-    if (b.dataset.lastig === 'sat') { days.sat = { available: true, from: '17:00', to: 'sluit', off: false }; toast('Zaterdagavond toegevoegd'); }
-    else { days.sun = { available: true, from: '12:00', to: '19:00', off: false }; toast('Zondagmiddag toegevoegd'); }
+  el.querySelectorAll('[data-wknd]').forEach(b => b.onclick = () => {
+    toggleWeekend(WEEKEND[+b.dataset.wknd]);
     renderEditor();
   });
   const copyBtn = el.querySelector('#open-copy');
