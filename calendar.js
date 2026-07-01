@@ -44,8 +44,12 @@ window.Cal = (function () {
 
   /* ---- render: de sleep-kalender van één week ---------------------------- */
   function renderBaseWeek(container, days, monday, onChange) {
-    const start = CFG.GRID_START_HOUR, end = CFG.GRID_END_HOUR;
-    const nSlots = end - start;
+    // Rastertijden komen (indien gezet) uit de beheer-instellingen
+    const cfg = (typeof window !== 'undefined' && window.CAL_CONFIG) || {};
+    const start = cfg.start != null ? cfg.start : CFG.GRID_START_HOUR;
+    const end = cfg.end != null ? cfg.end : CFG.GRID_END_HOUR;
+    const HOURS = [];
+    for (let h = start; h < end; h++) if (!SKIP.has(h)) HOURS.push(h);
 
     container.classList.add('tg');
     container.innerHTML = '';

@@ -164,10 +164,38 @@ function startTicker() {
 /* ---------------------------------------------------------------------
    3. APP-STATE
    --------------------------------------------------------------------- */
-const GOAL_WEEKS = 10;                 // we willen ~10 weken vooruit
-// We beginnen 2 weken vooruit: de lopende week + de week erop zijn al ingeroosterd.
-const FIRST_WEEK = 29;                  // offset 0 = week 29
-const BASE_MONDAY = new Date(2026, 6, 13); // ma 13 juli 2026 = week 29
+// Deze worden door de beheer-instellingen (per locatie/functiegroep) gezet — zie applySettings()
+let GOAL_WEEKS = 10;                    // weken vooruit
+let FIRST_WEEK = 29;                    // eerste weeknummer (berekend vanaf nu)
+let BASE_MONDAY = new Date(2026, 6, 13);// maandag van de eerste week
+let GROEN_MIN_DIENSTEN = 3;             // groen vanaf zoveel diensten/week (anders blauw)
+let WEEKEND_VERPLICHT = true;           // blauw moet eerst het weekend opgeven
+let LASTIG = { zaVan: 18, zaTot: 23, zoVan: 12, zoTot: 19 }; // vensters lastige diensten (uren)
+
+/* ---- Beheer-instellingen inlezen (gedeeld met de beheerpagina via localStorage) ---- */
+const SETTINGS_KEY = 'staffapp_settings_v1';
+const SETTINGS_DEFAULTS = {
+  wekenVooruit: 10, startOffset: 1, groenMinDiensten: 3, minLastigePerWeek: 1, weekendVerplicht: true,
+  doelDiensten: 12, doelLastige: 3, kantelpunt: '17:00',
+  zaVan: '18:00', zaTot: '23:00', zoVan: '12:00', zoTot: '19:00', roosterStart: '08:00', roosterEind: '00:00',
+};
+function loadSettings() { try { return JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {}; } catch (_) { return {}; } }
+function groepVan(p) { return p.groep || 'Bediening'; } // Kelner/Runner/LG → Bediening in de demo
+function settingsFor(p) { const s = loadSettings(); const loc = userZaak(p); const grp = groepVan(p); return Object.assign({}, SETTINGS_DEFAULTS, (s[loc] && s[loc][grp]) || {}); }
+const _hh = t => (t === '00:00' || t === 'sluit') ? 24 : parseInt(t, 10);
+function _isoWeek(d) { const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())); const day = t.getUTCDay() || 7; t.setUTCDate(t.getUTCDate() + 4 - day); const ys = new Date(Date.UTC(t.getUTCFullYear(), 0, 1)); return Math.ceil(((t - ys) / 86400000 + 1) / 7); }
+function _mondayThisWeek() { const d = new Date(); d.setHours(0, 0, 0, 0); const day = d.getDay(); d.setDate(d.getDate() + (day === 0 ? -6 : 1 - day)); return d; }
+// Zet de globale config voor deze medewerker uit de beheer-instellingen
+function applySettings(p) {
+  const s = settingsFor(p);
+  GOAL_WEEKS = Math.max(1, Math.min(26, s.wekenVooruit | 0 || 10));
+  const mon = _mondayThisWeek(); mon.setDate(mon.getDate() + (1 + (s.startOffset | 0)) * 7);
+  BASE_MONDAY = mon; FIRST_WEEK = _isoWeek(mon);
+  GROEN_MIN_DIENSTEN = s.groenMinDiensten | 0 || 3;
+  WEEKEND_VERPLICHT = !!s.weekendVerplicht;
+  LASTIG = { zaVan: _hh(s.zaVan), zaTot: _hh(s.zaTot), zoVan: _hh(s.zoVan), zoTot: _hh(s.zoTot) };
+  const eind = _hh(s.roosterEind); window.CAL_CONFIG = { start: _hh(s.roosterStart), end: eind === 0 ? 24 : eind };
+}
 
 const state = {
   personaIx: 0,
@@ -209,6 +237,7 @@ function baselineWeken(p) {
 }
 // Vul de demo-beschikbaarheid bij het kiezen van een medewerker
 function seedWeken(p) {
+  applySettings(p);   // beheer-instellingen voor deze locatie/functiegroep toepassen
   state.weken = {};
   // Vakantieganger: huidige week beschikbaar, dan 2 weken vakantie (vrij),
   // daarna leeg — zodat de weken ná de vakantie nog opgegeven moeten worden.
@@ -295,13 +324,13 @@ function toggleWeekend(w) {
 }
 function weekHasWeekend() { const days = weekDays(state.weekOffset); return ['fri', 'sat', 'sun'].some(k => days[k].available); }
 
-// Lastige dienst = zaterdag 18:00–23:00 of zondag 12:00–19:00 volledig gedekt
+// Lastige dienst = venster uit de beheer-instellingen (default za 18–23 / zo 12–19)
 function isLastigDag(key, day) {
   if (!day || !day.available) return false;
   const f = hourNum(day.from), t = hourNum(day.to);
   if (f == null || t == null) return false;
-  if (key === 'sat') return f <= 18 && t >= 23;
-  if (key === 'sun') return f <= 12 && t >= 19;
+  if (key === 'sat') return f <= LASTIG.zaVan && t >= LASTIG.zaTot;
+  if (key === 'sun') return f <= LASTIG.zoVan && t >= LASTIG.zoTot;
   return false;
 }
 // Tel lastige diensten over álle ingevulde weken (voor de teller in de editor)
@@ -354,8 +383,7 @@ function pillClass(w) {
   if (isVakantieWeek(w)) return 'vrij';
   const d = state.weken[w];
   if (!d || Cal.isEmpty(d)) return 'leeg';
-  const gd = persona().dienstMin || GREEN.diensten;
-  return dienstenInWeek(w) >= gd ? 'has' : 'blauw'; // genoeg beschikbaarheid = groen, anders blauw
+  return dienstenInWeek(w) >= GROEN_MIN_DIENSTEN ? 'has' : 'blauw'; // genoeg beschikbaarheid = groen, anders blauw
 }
 // Vakantie + lege weken erna (om te stimuleren)
 function vacInfo() {
@@ -713,7 +741,7 @@ function renderEditor() {
     `<button class="lqbtn ${wkndActive(w, days) ? 'on' : ''} ${w.lastig ? 'lastig' : ''}" data-wknd="${i}">${w.label}<span>${w.sub}</span></button>`
   ).join('');
   // Blauw: verplicht eerst het weekend; pas daarna de rest van de week
-  const gridBlock = (blue && !weekHasWeekend())
+  const gridBlock = (blue && WEEKEND_VERPLICHT && !weekHasWeekend())
     ? `<div class="wknd-lock">🔒 Geef eerst je weekend op. Daarna kun je de rest van de week invullen.</div>`
     : `<div id="tg-grid"></div>
        <div class="legenda">
