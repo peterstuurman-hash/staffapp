@@ -392,6 +392,7 @@ html, body {
 }
 .wkpill.has { background: var(--green); color: #fff; }
 .wkpill.oranje { background: var(--amber); color: #fff; }  /* te weinig lastige diensten deze week */
+.wkpill.blauw { background: var(--blue); color: #fff; }  /* te weinig diensten deze week */
 .wkpill.vrij { background: var(--red); color: #fff; }  /* volle vakantieweek */
 .wkpill.cur { outline: 3px solid #2f342f; outline-offset: 1px; }
 

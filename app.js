@@ -108,7 +108,7 @@ const PERSONAS = [
     zaterdagGewerkt: false, roosterBeschikbaar: true, tenureWeken: 82 },
   { id: 'pien', naam: 'Pien Duijndam', rol: 'Kelner · Branding', avatar: '🙂',
     punten: 760, xp: 0.40, streak: 4, dagen: 12, diensten: 4, zaterdagen: 2,
-    zaterdagGewerkt: true, roosterBeschikbaar: true, tenureWeken: 38, lastigMin: 1 },
+    zaterdagGewerkt: true, roosterBeschikbaar: true, tenureWeken: 38, lastigMin: 1, dienstMin: 3 },
   { id: 'jesse', naam: 'Jesse Plas', rol: 'Kelner · Branding', avatar: '😅',
     punten: 610, xp: 0.32, streak: 1, dagen: 13, diensten: 5, zaterdagen: 1,
     zaterdagGewerkt: true, roosterBeschikbaar: false, tenureWeken: 27, blauwOver: true },
@@ -217,13 +217,25 @@ function seedWeken(p) {
     for (const w of [1, 2]) { const d = Cal.emptyDays(); Cal.fill(d, 'alle-v'); state.weken[w] = d; }
     return;
   }
+  // Demo-kandidaat met minima: mix groen/oranje/blauw laten zien
+  if (p.lastigMin || p.dienstMin) {
+    const mk = (...f) => { const d = Cal.emptyDays(); f.forEach(x => Cal.fill(d, x)); return d; };
+    state.weken[0] = mk('doordeweeks', 'weekend'); // genoeg + lastige → groen
+    state.weken[1] = mk('doordeweeks', 'weekend'); // groen
+    const sparse = Cal.emptyDays();                 // maar 2 diensten → blauw
+    sparse.mon = { available: true, from: '17:00', to: 'sluit', off: false };
+    sparse.tue = { available: true, from: '17:00', to: 'sluit', off: false };
+    state.weken[2] = sparse;
+    state.weken[3] = mk('doordeweeks');            // genoeg diensten, geen lastige → oranje
+    state.weken[4] = mk('doordeweeks');            // oranje
+    return;
+  }
   const n = baselineWeken(p);
   const weekend = (p.status === 'topper_zat' || p.status === 'topper');
   for (let w = 0; w < n; w++) {
     const days = Cal.emptyDays();
     Cal.fill(days, 'doordeweeks');
-    // toppers overal weekend; lastigMin-kandidaat alleen eerste 2 weken (rest wordt oranje)
-    if (weekend || (p.lastigMin && w < 2)) Cal.fill(days, 'weekend');
+    if (weekend) Cal.fill(days, 'weekend');
     state.weken[w] = days;
   }
 }
@@ -319,13 +331,19 @@ function lastigInWeek(off) {
   const d = state.weken[off];
   return d ? Cal.DAY_KEYS.filter(k => isLastigDag(k, d[k])).length : 0;
 }
-// Kleur van een week-pil: rood (vakantie) / oranje (te weinig lastige) / groen (ok) / grijs (leeg)
+// Aantal diensten (beschikbare dagen) in één week
+function dienstenInWeek(off) {
+  const d = state.weken[off];
+  return d ? Cal.DAY_KEYS.filter(k => d[k] && d[k].available).length : 0;
+}
+// Kleur van een week-pil: rood (vakantie) / blauw (te weinig diensten) / oranje (te weinig lastige) / groen (ok) / grijs (leeg)
 function pillClass(w) {
   if (isVakantieWeek(w)) return 'vrij';
   const d = state.weken[w];
   if (!d || Cal.isEmpty(d)) return 'leeg';
-  const min = persona().lastigMin || 0; // backend: minimum lastige diensten per week
-  if (min > 0 && lastigInWeek(w) < min) return 'oranje';
+  const p = persona();
+  if ((p.dienstMin || 0) > 0 && dienstenInWeek(w) < p.dienstMin) return 'blauw';   // te weinig diensten
+  if ((p.lastigMin || 0) > 0 && lastigInWeek(w) < p.lastigMin) return 'oranje';     // te weinig lastige
   return 'has';
 }
 // Vakantie + lege weken erna (om te stimuleren)
@@ -848,8 +866,9 @@ function viewRooster() {
       <div class="card roster-block">
         <div class="rb-ic">🔒</div>
         <div class="rb-title">Jij staat niet op dit rooster</div>
-        <div class="rb-sub">${occ ? 'Je werkt op afroep.' : 'Geef meer beschikbaarheid op.'}</div>
-        ${occ ? '' : '<button class="btn btn-primary btn-block" id="rb-go" style="margin-top:14px">Beschikbaarheid opgeven</button>'}
+        ${occ
+          ? '<button class="btn btn-primary btn-block" id="rb-rode" style="margin-top:14px">Ga naar rode plekken</button>'
+          : '<div class="rb-sub">Geef meer beschikbaarheid op.</div><button class="btn btn-primary btn-block" id="rb-go" style="margin-top:14px">Beschikbaarheid opgeven</button>'}
       </div>`;
   }
 
@@ -978,9 +997,11 @@ function wireView() {
     state.rosterDay = +d.dataset.rd;
     renderView();
   });
-  // Rooster geblokkeerd → naar beschikbaarheid
+  // Rooster geblokkeerd → naar beschikbaarheid of rode plekken
   const rbGo = v.querySelector('#rb-go');
   if (rbGo) rbGo.onclick = () => go('beschikbaar');
+  const rbRode = v.querySelector('#rb-rode');
+  if (rbRode) rbRode.onclick = () => go('rode');
 
   // Startscherm: mededeling-knoppen
   v.querySelectorAll('[data-mdl]').forEach(b => b.onclick = () => go(b.dataset.mdl));
