@@ -412,13 +412,7 @@ function renderStatus() {
   const phone = document.querySelector('.phone');
   if (phone) phone.className = 'phone bg-' + s.theme.replace('t-', '');
 
-  // Voortgangsbalk = hoeveel weken vooruit opgegeven (geen punten/plek)
-  const wv = wekenIngevuld();
-  const xpBlock = (s.level !== null) ? `
-    <div class="sb-xp">
-      <div class="sb-xp-track"><div class="sb-xp-fill" style="width:${Math.round((wv / GOAL_WEEKS) * 100)}%"></div></div>
-      <div class="sb-xp-meta"><span>${wv} van ${GOAL_WEEKS} weken vooruit opgegeven</span><span>${wv >= GOAL_WEEKS ? 'top! 🎉' : `nog ${GOAL_WEEKS - wv}`}</span></div>
-    </div>` : '';
+  const xpBlock = ''; // voortgangsbalk verwijderd (te veel tekst)
 
   // "Bijna blauw" krijgt een live aftelklok i.p.v. een simpele chip
   const alertChip = (s.alert && p.blauwOver)
@@ -557,41 +551,19 @@ function coachCard(p) {
         <div class="coach-head">Geef je beschikbaarheid op voor de weken ná je vakantie.</div>
       </div>`;
   }
-  const t = countTarget();
-  const wv = wekenIngevuld();
-  const focus = ['blauw', 'bijna_blauw', 'newbee'].includes(p.status);
+  // Alleen de concrete ontbrekende weken tonen (rest is weggehaald)
+  const leeg = [];
+  for (let w = 0; w < GOAL_WEEKS; w++) { const d = state.weken[w]; if (!d || Cal.isEmpty(d)) leeg.push(weekNr(w)); }
+  if (!leeg.length) return ''; // alles ingevuld → geen coach
 
-  // Wat mist de medewerker nog? (nadruk op tekorten)
-  const missLastig = Math.max(0, TARGET.lastig - t.l);
-  const missDienst = Math.max(0, TARGET.diensten - t.d);
-  const missWeken = Math.max(0, GOAL_WEEKS - wv);
-  const klaar = missLastig === 0 && missDienst === 0 && missWeken === 0;
-  if (klaar && !focus) return ''; // niets te doen en geen aandachtsgroep → scherm rustig
+  let wkTxt;
+  if (leeg.length === 1) wkTxt = `week ${leeg[0]}`;
+  else if (leeg[leeg.length - 1] - leeg[0] === leeg.length - 1) wkTxt = `week ${leeg[0]} t/m ${leeg[leeg.length - 1]}`;
+  else wkTxt = 'week ' + leeg.join(', ');
 
-  let kop;
-  if (klaar) kop = 'Je beschikbaarheid is op orde.';
-  else if (p.status === 'blauw') kop = 'Je staat op blauw — dit heb je nog nodig:';
-  else kop = 'Dit heb je nog nodig:';
-
-  const todo = [];
-  if (missLastig) todo.push(`<li class="urgent"><b>${missLastig} lastige ${missLastig > 1 ? 'diensten' : 'dienst'}</b></li>`);
-  if (missDienst) todo.push(`<li><b>${missDienst} ${missDienst > 1 ? 'diensten' : 'dienst'}</b> erbij</li>`);
-  if (missWeken) {
-    // concrete ontbrekende weken noemen i.p.v. "9/10"
-    const leeg = [];
-    for (let w = 0; w < GOAL_WEEKS; w++) { const d = state.weken[w]; if (!d || Cal.isEmpty(d)) leeg.push(weekNr(w)); }
-    let wkTxt;
-    if (leeg.length === 1) wkTxt = `week ${leeg[0]}`;
-    else if (leeg[leeg.length - 1] - leeg[0] === leeg.length - 1) wkTxt = `week ${leeg[0]} t/m ${leeg[leeg.length - 1]}`;
-    else wkTxt = 'week ' + leeg.join(', ');
-    todo.push(`<li>Geef nu ook <b>${wkTxt}</b> op</li>`);
-  }
-
-  const cls = klaar ? 'ok' : (p.status === 'blauw' ? 'blue' : '');
   return `
-    <div class="coach ${cls}">
-      <div class="coach-head">${kop}</div>
-      ${todo.length ? `<ul class="coach-todo">${todo.join('')}</ul>` : ''}
+    <div class="coach ${p.status === 'blauw' ? 'blue' : ''}">
+      <ul class="coach-todo"><li>Geef nu ook <b>${wkTxt}</b> op</li></ul>
     </div>`;
 }
 
@@ -614,8 +586,6 @@ function viewBeschikbaar() {
   }).join('');
 
   return `
-    <div class="screen-title">Wat moet je doen</div>
-
     ${actieVeld(p)}
 
     <div class="card">
