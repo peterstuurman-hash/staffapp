@@ -70,9 +70,9 @@
               <input type="number" id="wekenVooruit" min="1" max="26" />
               <span class="hint">Hoeveel weken de medewerker vooruit kan opgeven.</span>
             </label>
-            <label class="field">Start bij weeknummer
-              <input type="number" id="startWeek" min="1" max="53" />
-              <span class="hint">Eerste week (lopende + volgende week zijn al ingeroosterd).</span>
+            <label class="field">Start — weken vanaf nu
+              <input type="number" id="startOffset" min="0" max="12" />
+              <span class="hint" id="startHint">…</span>
             </label>
           </div>
         </fieldset>
@@ -150,7 +150,7 @@
       const LOCATIES = ['Branding', 'Hippiefish', 'Witsand', 'Ubuntu', 'Kayuca', 'Paco Ciao', 'Tulum'];
       const GROEPEN = ['Bediening', 'Keuken', 'Afwas'];
       const DEFAULTS = {
-        wekenVooruit: 10, startWeek: 29,
+        wekenVooruit: 10, startOffset: 1,
         groenMinDiensten: 3, minLastigePerWeek: 1, weekendVerplicht: true,
         doelDiensten: 12, doelLastige: 3,
         kantelpunt: '17:00', zaVan: '18:00', zaTot: '23:00', zoVan: '12:00', zoTot: '19:00',
@@ -164,6 +164,11 @@
       function persist() { localStorage.setItem(KEY, JSON.stringify(store)); }
       function cfg(loc, grp) { return Object.assign({}, DEFAULTS, (store[loc] && store[loc][grp]) || {}); }
       function setCfg(loc, grp, obj) { store[loc] = store[loc] || {}; store[loc][grp] = obj; }
+
+      // Start = berekening vanaf nu (0 = eerstvolgende hele week)
+      function isoWeek(d) { const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())); const day = t.getUTCDay() || 7; t.setUTCDate(t.getUTCDate() + 4 - day); const ys = new Date(Date.UTC(t.getUTCFullYear(), 0, 1)); return Math.ceil(((t - ys) / 86400000 + 1) / 7); }
+      function mondayThisWeek() { const d = new Date(); d.setHours(0, 0, 0, 0); const day = d.getDay(); d.setDate(d.getDate() + (day === 0 ? -6 : 1 - day)); return d; }
+      function startWeekFor(offset) { const m = mondayThisWeek(); m.setDate(m.getDate() + (1 + offset) * 7); return isoWeek(m); }
 
       const $ = id => document.getElementById(id);
       const locSel = $('loc'), grpSel = $('grp');
@@ -184,17 +189,23 @@
           if (el.type === 'checkbox') el.checked = !!c[f]; else el.value = c[f];
         }
       }
+      function updateStartHint() {
+        const off = +$('startOffset').value || 0;
+        $('startHint').textContent = `= week ${startWeekFor(off)}  (vandaag = week ${isoWeek(new Date())}). 0 = eerstvolgende hele week.`;
+      }
       function showJson() {
-        const loc = locSel.value, grp = grpSel.value;
-        $('json').textContent = JSON.stringify({ locatie: loc, functiegroep: grp, voorwaarden: cfg(loc, grp) }, null, 2);
+        const loc = locSel.value, grp = grpSel.value, c = cfg(loc, grp);
+        const preview = { locatie: loc, functiegroep: grp, voorwaarden: c, _startWeekVandaag: startWeekFor(c.startOffset || 0) };
+        $('json').textContent = JSON.stringify(preview, null, 2);
         $('scope').textContent = loc + ' · ' + grp;
       }
-      function loadCombo() { fillForm(cfg(locSel.value, grpSel.value)); showJson(); }
+      function loadCombo() { fillForm(cfg(locSel.value, grpSel.value)); updateStartHint(); showJson(); }
 
       function toast(msg) { const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), 1800); }
 
       locSel.onchange = loadCombo;
       grpSel.onchange = loadCombo;
+      $('startOffset').oninput = updateStartHint;
       $('save').onclick = () => { setCfg(locSel.value, grpSel.value, readForm()); persist(); showJson(); toast('Opgeslagen ✓'); };
       $('reset').onclick = () => { fillForm(DEFAULTS); showJson(); };
       $('copyGrp').onclick = () => { const c = readForm(); GROEPEN.forEach(g => setCfg(locSel.value, g, { ...c })); persist(); showJson(); toast('Gekopieerd naar alle functiegroepen van ' + locSel.value); };
