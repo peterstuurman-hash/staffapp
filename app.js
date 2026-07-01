@@ -349,17 +349,14 @@ function weekendHours(off) { const d = state.weken[off]; return d ? hoursOf(d.sa
 // Topperweek: veel beschikbaarheid (>40u) waarvan genoeg in het weekend (>16u)
 function isTopperWeek(off) { return weekHours(off) >= TOPPER.uren && weekendHours(off) >= TOPPER.weekendUren; }
 
-// Kleur van een week-pil: rood (vakantie) / topper / groen / oranje / blauw / grijs (leeg)
+// Kleur van een week-pil: rood (vakantie) / topper / groen (goed) / blauw (te weinig) / grijs (leeg)
 function pillClass(w) {
   if (isVakantieWeek(w)) return 'vrij';
   const d = state.weken[w];
   if (!d || Cal.isEmpty(d)) return 'leeg';
   if (isTopperWeek(w)) return 'topper';
-  const p = persona();
-  const gd = p.dienstMin || GREEN.diensten, gl = p.lastigMin || GREEN.lastig;
-  if (dienstenInWeek(w) < gd) return 'blauw';   // begonnen, te weinig diensten
-  if (lastigInWeek(w) < gl) return 'oranje';    // genoeg diensten, nog geen lastige
-  return 'has';                                  // groen: min. gehaald
+  const gd = persona().dienstMin || GREEN.diensten;
+  return dienstenInWeek(w) >= gd ? 'has' : 'blauw'; // genoeg beschikbaarheid = groen, anders blauw
 }
 // Vakantie + lege weken erna (om te stimuleren)
 function vacInfo() {
@@ -702,8 +699,7 @@ function weekBadge(off) {
   const c = pillClass(off);
   if (c === 'topper') return '<div class="wk-badge topper">💪🕺 Jij bent echt een topper!</div>';
   if (c === 'has') return '<div class="wk-badge ok">✅ Top — deze week staat groen</div>';
-  if (c === 'oranje') return '<div class="wk-badge oranje">⭐ Kies nog een lastige dienst (za-avond of zo-middag)</div>';
-  return '<div class="wk-badge blauw">Geef nog wat diensten op…</div>';
+  return '<div class="wk-badge blauw">Nog te weinig — geef meer diensten op</div>';
 }
 
 function renderEditor() {
