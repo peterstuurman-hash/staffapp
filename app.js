@@ -108,7 +108,7 @@ const PERSONAS = [
     zaterdagGewerkt: false, roosterBeschikbaar: true, tenureWeken: 82 },
   { id: 'pien', naam: 'Pien Duijndam', rol: 'Kelner · Branding', avatar: '🙂',
     punten: 760, xp: 0.40, streak: 4, dagen: 12, diensten: 4, zaterdagen: 2,
-    zaterdagGewerkt: true, roosterBeschikbaar: true, tenureWeken: 38 },
+    zaterdagGewerkt: true, roosterBeschikbaar: true, tenureWeken: 38, lastigMin: 1 },
   { id: 'jesse', naam: 'Jesse Plas', rol: 'Kelner · Branding', avatar: '😅',
     punten: 610, xp: 0.32, streak: 1, dagen: 13, diensten: 5, zaterdagen: 1,
     zaterdagGewerkt: true, roosterBeschikbaar: false, tenureWeken: 27, blauwOver: true },
@@ -222,7 +222,8 @@ function seedWeken(p) {
   for (let w = 0; w < n; w++) {
     const days = Cal.emptyDays();
     Cal.fill(days, 'doordeweeks');
-    if (weekend) Cal.fill(days, 'weekend');
+    // toppers overal weekend; lastigMin-kandidaat alleen eerste 2 weken (rest wordt oranje)
+    if (weekend || (p.lastigMin && w < 2)) Cal.fill(days, 'weekend');
     state.weken[w] = days;
   }
 }
@@ -312,6 +313,20 @@ function countTarget() {
 function isVakantieWeek(off) {
   const d = state.weken[off];
   return !!d && Cal.DAY_KEYS.every(k => d[k] && d[k].off);
+}
+// Aantal lastige diensten in één week
+function lastigInWeek(off) {
+  const d = state.weken[off];
+  return d ? Cal.DAY_KEYS.filter(k => isLastigDag(k, d[k])).length : 0;
+}
+// Kleur van een week-pil: rood (vakantie) / oranje (te weinig lastige) / groen (ok) / grijs (leeg)
+function pillClass(w) {
+  if (isVakantieWeek(w)) return 'vrij';
+  const d = state.weken[w];
+  if (!d || Cal.isEmpty(d)) return 'leeg';
+  const min = persona().lastigMin || 0; // backend: minimum lastige diensten per week
+  if (min > 0 && lastigInWeek(w) < min) return 'oranje';
+  return 'has';
 }
 // Vakantie + lege weken erna (om te stimuleren)
 function vacInfo() {
@@ -593,11 +608,8 @@ function viewBeschikbaar() {
   const p = persona();
 
   // Weeknummers 29..38 met status; tik een week om die te openen
-  const pillen = Array.from({ length: GOAL_WEEKS }, (_, w) => {
-    const d = state.weken[w];
-    const cls = isVakantieWeek(w) ? 'vrij' : (d && !Cal.isEmpty(d)) ? 'has' : 'leeg';
-    return `<button class="wkpill ${cls}" data-week="${w}">${weekNr(w)}</button>`;
-  }).join('');
+  const pillen = Array.from({ length: GOAL_WEEKS }, (_, w) =>
+    `<button class="wkpill ${pillClass(w)}" data-week="${w}">${weekNr(w)}</button>`).join('');
 
   return `
     ${actieVeld(p)}
@@ -652,13 +664,9 @@ function renderRodeFull() {
 
 function renderEditor() {
   const off = state.weekOffset;
-  const la = countLastigAll();
   const sum = Cal.summary(weekDays(off));
-  const pillen = Array.from({ length: GOAL_WEEKS }, (_, w) => {
-    const d = state.weken[w];
-    const cls = isVakantieWeek(w) ? 'vrij' : (d && !Cal.isEmpty(d)) ? 'has' : 'leeg';
-    return `<button class="wkpill ${cls} ${w === off ? 'cur' : ''}" data-pill="${w}">${weekNr(w)}</button>`;
-  }).join('');
+  const pillen = Array.from({ length: GOAL_WEEKS }, (_, w) =>
+    `<button class="wkpill ${pillClass(w)} ${w === off ? 'cur' : ''}" data-pill="${w}">${weekNr(w)}</button>`).join('');
 
   const blue = persona().status === 'blauw';
   const days = weekDays(off);
@@ -678,7 +686,6 @@ function renderEditor() {
   el.innerHTML = `
     <div class="ed-top">
       <div class="ed-title">Beschikbaarheid</div>
-      <div class="ed-counter ${la >= TARGET.lastig ? 'ok' : ''}" id="ed-counter">Lastige diensten ${la}/${TARGET.lastig}</div>
     </div>
     <div class="ed-body">
       <div class="wkpills">${pillen}</div>
@@ -707,10 +714,9 @@ function wireEditor() {
   const grid = el.querySelector('#tg-grid');
   if (grid && window.Cal) {
     Cal.renderBaseWeek(grid, weekDays(state.weekOffset), mondayFor(state.weekOffset), () => {
-      // teller + legenda live bijwerken zonder de hele editor te hertekenen (slepen blijft werken)
-      const la = countLastigAll();
-      const cnt = el.querySelector('#ed-counter');
-      if (cnt) { cnt.textContent = `Lastige diensten ${la}/${TARGET.lastig}`; cnt.classList.toggle('ok', la >= TARGET.lastig); }
+      // legenda + de pil van deze week live bijwerken (oranje/groen) zonder de editor te hertekenen
+      const pill = el.querySelector(`[data-pill="${state.weekOffset}"]`);
+      if (pill) pill.className = `wkpill ${pillClass(state.weekOffset)} cur`;
       const lg = el.querySelector('.legenda');
       if (lg) { const s = Cal.summary(weekDays(state.weekOffset)); lg.innerHTML =
         `<span><i class="lg a"></i> kan werken (${s.kan})</span><span><i class="lg v"></i> vrije dag (${s.vrij})</span>`; }
