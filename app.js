@@ -420,6 +420,7 @@ function roosterVoor(d) {
 
 // "Overig"-menu (alle subs uit het oude hoofdmenu)
 const OVERIG = [
+  { ic: '⚙️', l: 'Beheer (instellingen)', href: './beheer/index.html' },
   { ic: '⏱️', l: 'Gewerkte uren' },
   { ic: '🌴', l: 'Vakantie aanvragen' },
   { ic: '🤝', l: 'Aangeboden diensten', badge: '4' },
@@ -1036,6 +1037,7 @@ function wireView() {
   // Overig: menu-items
   v.querySelectorAll('[data-overig]').forEach(m => m.onclick = () => {
     const item = OVERIG[+m.dataset.overig];
+    if (item.href) { window.location.href = item.href; return; }
     toast(`"${item.l}" — nog niet in prototype`);
   });
 

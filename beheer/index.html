@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="nl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <title>Branding Staff — Beheer</title>
+    <style>
+      :root{ --green:#4f9d57; --green-dark:#3f7d45; --blue:#4a6fa5; --amber:#e6a23c; --red:#d9534f;
+        --bg:#f4f5f3; --card:#fff; --ink:#1f231f; --muted:#7a807a; --line:#e8eae6; --shadow:0 6px 22px rgba(20,30,20,.08); }
+      *{box-sizing:border-box;} body{margin:0;font-family:-apple-system,"Segoe UI",Roboto,Arial,sans-serif;background:var(--bg);color:var(--ink);line-height:1.5;}
+      .wrap{max-width:820px;margin:0 auto;padding:18px 16px 60px;}
+      .topbar{background:#2f342f;color:#fff;border-radius:14px;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;}
+      .topbar b{font-weight:800;} .topbar a{color:#bfe0c2;font-size:13px;text-decoration:none;}
+      h1{font-size:22px;margin:0 0 2px;} .lead{color:var(--muted);font-size:14px;margin:0 0 18px;}
+      .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;margin-bottom:16px;box-shadow:var(--shadow);}
+      .card h2{font-size:16px;margin:0 0 14px;}
+      .pickrow{display:flex;gap:12px;flex-wrap:wrap;}
+      .field{display:flex;flex-direction:column;gap:5px;font-size:13px;font-weight:700;}
+      .field.small{max-width:150px;}
+      select,input[type=number],input[type=time]{padding:9px 11px;border:1px solid var(--line);border-radius:9px;font-size:14px;font-weight:500;background:#fff;}
+      .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+      @media(max-width:560px){ .grid2{grid-template-columns:1fr;} }
+      .row{display:flex;align-items:center;gap:10px;}
+      .switch{display:flex;align-items:center;gap:10px;font-weight:700;font-size:14px;}
+      .switch input{width:20px;height:20px;accent-color:var(--green);}
+      .hint{font-size:12px;color:var(--muted);font-weight:400;}
+      .actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:4px;}
+      .btn{border:none;border-radius:10px;padding:11px 16px;font-size:14px;font-weight:700;cursor:pointer;}
+      .btn-primary{background:var(--green);color:#fff;} .btn-ghost{background:#fff;border:1.5px solid var(--line);color:var(--ink);}
+      .btn-link{background:none;color:var(--muted);}
+      .badge{font-size:11px;font-weight:800;background:#eef0ec;border-radius:999px;padding:3px 10px;}
+      pre{background:#11140f;color:#cfe6d1;border-radius:12px;padding:14px;font-size:12px;overflow:auto;}
+      .toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:#2f342f;color:#fff;padding:11px 18px;border-radius:999px;font-weight:700;font-size:14px;box-shadow:var(--shadow);}
+      .hidden{display:none;}
+      .sub{font-size:12px;color:var(--muted);font-weight:400;margin-top:2px;}
+      fieldset{border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin:0 0 4px;}
+      legend{font-size:13px;font-weight:800;padding:0 6px;color:var(--green-dark);}
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="topbar">
+        <span><b>🌿 Branding Staff</b> · Beheer</span>
+        <a href="../">← naar de app</a>
+      </div>
+
+      <h1>Instellingen</h1>
+      <p class="lead">Voorwaarden per <b>locatie</b> en <b>functiegroep</b>. Wat je hier instelt bepaalt hoe de staff-app kleurt en stuurt (mock — opgeslagen in je browser).</p>
+
+      <div class="card">
+        <div class="pickrow">
+          <label class="field">Locatie
+            <select id="loc"></select>
+          </label>
+          <label class="field">Functiegroep
+            <select id="grp"></select>
+          </label>
+          <span class="badge" id="scope"></span>
+        </div>
+      </div>
+
+      <form id="form" class="card">
+        <h2>Voorwaarden</h2>
+
+        <fieldset>
+          <legend>Beschikbaarheid opgeven</legend>
+          <div class="grid2">
+            <label class="field">Weken vooruit opgeven
+              <input type="number" id="wekenVooruit" min="1" max="26" />
+              <span class="hint">Hoeveel weken de medewerker vooruit kan opgeven.</span>
+            </label>
+            <label class="field">Start bij weeknummer
+              <input type="number" id="startWeek" min="1" max="53" />
+              <span class="hint">Eerste week (lopende + volgende week zijn al ingeroosterd).</span>
+            </label>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Wanneer is een week groen?</legend>
+          <div class="grid2">
+            <label class="field">Min. diensten per week (groen)
+              <input type="number" id="groenMinDiensten" min="0" max="7" />
+              <span class="hint">Minder dan dit = blauw.</span>
+            </label>
+            <label class="field">Min. lastige diensten per week
+              <input type="number" id="minLastigePerWeek" min="0" max="7" />
+              <span class="hint">0 = geen eis. Anders kleurt de week pas groen met genoeg lastige.</span>
+            </label>
+          </div>
+          <label class="switch" style="margin-top:12px"><input type="checkbox" id="weekendVerplicht" /> Weekend verplicht eerst opgeven (bij te weinig beschikbaarheid)</label>
+        </fieldset>
+
+        <fieldset>
+          <legend>Doel over 4 weken</legend>
+          <div class="grid2">
+            <label class="field">Totaal diensten
+              <input type="number" id="doelDiensten" min="0" max="60" />
+            </label>
+            <label class="field">Waarvan lastige diensten
+              <input type="number" id="doelLastige" min="0" max="20" />
+            </label>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Lastige diensten (kantelpunt & vensters)</legend>
+          <label class="field small">Kantelpunt (chip “tot / vanaf”)
+            <input type="time" id="kantelpunt" />
+          </label>
+          <div class="grid2" style="margin-top:12px">
+            <label class="field">Zaterdagavond van – tot
+              <div class="row"><input type="time" id="zaVan" /><span>–</span><input type="time" id="zaTot" /></div>
+            </label>
+            <label class="field">Zondagmiddag van – tot
+              <div class="row"><input type="time" id="zoVan" /><span>–</span><input type="time" id="zoTot" /></div>
+            </label>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Rooster-tijden</legend>
+          <div class="grid2">
+            <label class="field">Raster start
+              <input type="time" id="roosterStart" />
+            </label>
+            <label class="field">Raster einde
+              <input type="time" id="roosterEind" />
+              <span class="hint">Laatste blok heet “sluit”.</span>
+            </label>
+          </div>
+        </fieldset>
+
+        <div class="actions">
+          <button type="button" class="btn btn-primary" id="save">Opslaan</button>
+          <button type="button" class="btn btn-ghost" id="copyGrp">Kopieer naar alle functiegroepen</button>
+          <button type="button" class="btn btn-ghost" id="copyLoc">Kopieer naar alle locaties</button>
+          <button type="button" class="btn btn-link" id="reset">Standaard herstellen</button>
+        </div>
+      </form>
+
+      <div class="card">
+        <h2>Configuratie (wat de app zou lezen)</h2>
+        <pre id="json"></pre>
+      </div>
+    </div>
+
+    <script>
+      const LOCATIES = ['Branding', 'Hippiefish', 'Witsand', 'Ubuntu', 'Kayuca', 'Paco Ciao', 'Tulum'];
+      const GROEPEN = ['Bediening', 'Keuken', 'Afwas'];
+      const DEFAULTS = {
+        wekenVooruit: 10, startWeek: 29,
+        groenMinDiensten: 3, minLastigePerWeek: 1, weekendVerplicht: true,
+        doelDiensten: 12, doelLastige: 3,
+        kantelpunt: '17:00', zaVan: '18:00', zaTot: '23:00', zoVan: '12:00', zoTot: '19:00',
+        roosterStart: '08:00', roosterEind: '00:00',
+      };
+      const FIELDS = Object.keys(DEFAULTS);
+      const KEY = 'staffapp_settings_v1';
+
+      let store = load();
+      function load() { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch (_) { return {}; } }
+      function persist() { localStorage.setItem(KEY, JSON.stringify(store)); }
+      function cfg(loc, grp) { return Object.assign({}, DEFAULTS, (store[loc] && store[loc][grp]) || {}); }
+      function setCfg(loc, grp, obj) { store[loc] = store[loc] || {}; store[loc][grp] = obj; }
+
+      const $ = id => document.getElementById(id);
+      const locSel = $('loc'), grpSel = $('grp');
+      LOCATIES.forEach(l => locSel.add(new Option(l, l)));
+      GROEPEN.forEach(g => grpSel.add(new Option(g, g)));
+
+      function readForm() {
+        const o = {};
+        for (const f of FIELDS) {
+          const el = $(f);
+          o[f] = el.type === 'checkbox' ? el.checked : (el.type === 'number' ? +el.value : el.value);
+        }
+        return o;
+      }
+      function fillForm(c) {
+        for (const f of FIELDS) {
+          const el = $(f);
+          if (el.type === 'checkbox') el.checked = !!c[f]; else el.value = c[f];
+        }
+      }
+      function showJson() {
+        const loc = locSel.value, grp = grpSel.value;
+        $('json').textContent = JSON.stringify({ locatie: loc, functiegroep: grp, voorwaarden: cfg(loc, grp) }, null, 2);
+        $('scope').textContent = loc + ' · ' + grp;
+      }
+      function loadCombo() { fillForm(cfg(locSel.value, grpSel.value)); showJson(); }
+
+      function toast(msg) { const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), 1800); }
+
+      locSel.onchange = loadCombo;
+      grpSel.onchange = loadCombo;
+      $('save').onclick = () => { setCfg(locSel.value, grpSel.value, readForm()); persist(); showJson(); toast('Opgeslagen ✓'); };
+      $('reset').onclick = () => { fillForm(DEFAULTS); showJson(); };
+      $('copyGrp').onclick = () => { const c = readForm(); GROEPEN.forEach(g => setCfg(locSel.value, g, { ...c })); persist(); showJson(); toast('Gekopieerd naar alle functiegroepen van ' + locSel.value); };
+      $('copyLoc').onclick = () => { const c = readForm(); LOCATIES.forEach(l => setCfg(l, grpSel.value, { ...c })); persist(); showJson(); toast('Gekopieerd naar alle locaties (' + grpSel.value + ')'); };
+
+      loadCombo();
+    </script>
+  </body>
+</html>
