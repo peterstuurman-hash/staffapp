@@ -238,6 +238,7 @@ html, body {
   border-radius: 999px; padding: 3px 8px; display: inline-block; margin-top: 4px;
 }
 .shift .grab { flex: 0 0 auto; }
+.pill-wait { font-size: 10px; font-weight: 800; color: #b5611c; background: #fdecdd; border-radius: 999px; padding: 1px 8px; margin-left: 4px; vertical-align: 1px; }
 .rode-sub { font-size: 14px; font-weight: 800; color: var(--amber); margin: 20px 2px 12px; }
 .shift.oranje { border-color: #f3d7a8; background: #fffaf1; }
 .shift.is-done { opacity: .55; }

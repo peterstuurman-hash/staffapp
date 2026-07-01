@@ -406,7 +406,7 @@ const TABS = [
   { id: 'home',        ic: '🏠', l: 'Start' },
   { id: 'beschikbaar', ic: '🗓️', l: 'Beschikbaar' },
   { id: 'rode',        ic: '🔥', l: 'Rode plekken', dot: true },
-  { id: 'ingeroosterd',ic: '✅', l: 'Ingeroosterd' },
+  { id: 'ingeroosterd',ic: '✅', l: 'Mijn diensten' },
   { id: 'rooster',     ic: '👥', l: 'Rooster' },
   { id: 'overig',      ic: '⋯',  l: 'Overig' },
 ];
@@ -772,8 +772,25 @@ function viewIngeroosterd() {
       <div class="t">${d.tijd} · ${d.rol} · ${d.zaak}</div>
     </div>`).join('');
 
+  // Gepakte rode + aangevraagde oranje diensten erbij
+  const gepakt = [...state.grabbed].map(k => PLEK_INDEX[k]).filter(Boolean);
+  const aangevraagd = [...state.aangevraagd].map(k => PLEK_INDEX[k]).filter(Boolean);
+  const extraRow = (r, tag) => `
+    <div class="tl-item ${tag === 'aanvraag' ? 'dim' : ''}">
+      <div class="d">${r.dag} ${r.datum} ${tag === 'aanvraag' ? '<span class="pill-wait">in aanvraag</span>' : ''}</div>
+      <div class="t">${r.tijd} · ${r.rol} · ${r.zaak}</div>
+    </div>`;
+  const extra = (gepakt.length || aangevraagd.length) ? `
+    <div class="card">
+      <h3>Zelf gepakt / aangevraagd</h3>
+      <div class="timeline">
+        ${gepakt.map(r => extraRow(r, 'gepakt')).join('')}
+        ${aangevraagd.map(r => extraRow(r, 'aanvraag')).join('')}
+      </div>
+    </div>` : '';
+
   return `
-    <div class="screen-title">Wanneer ben ik ingeroosterd?</div>
+    <div class="screen-title">Mijn diensten</div>
 
     <div class="next-shift">
       <div class="lbl">Eerstvolgende dienst</div>
@@ -786,7 +803,9 @@ function viewIngeroosterd() {
       <div class="timeline">
         ${rest || '<p class="muted small">Geen verdere diensten ingepland.</p>'}
       </div>
-    </div>`;
+    </div>
+
+    ${extra}`;
 }
 
 /* ---- 8d. Rooster (team) ---- */
