@@ -393,6 +393,15 @@ html, body {
 .wkpill.has { background: var(--green); color: #fff; }
 .wkpill.oranje { background: var(--amber); color: #fff; }  /* te weinig lastige diensten deze week */
 .wkpill.blauw { background: var(--blue); color: #fff; }  /* te weinig diensten deze week */
+.wkpill.topper { background: linear-gradient(135deg, #e3bb52, #c2902a); color: #fff; box-shadow: inset 0 0 0 2px #fff3cf; }  /* topperweek */
+
+/* Live week-badge in de editor */
+.wk-badge { border-radius: 10px; padding: 9px 12px; font-size: 13px; font-weight: 700; margin: 10px 0 2px; }
+.wk-badge:empty { display: none; }
+.wk-badge.blauw { background: #eaf1fb; color: var(--blue); }
+.wk-badge.oranje { background: #fdf1e2; color: #b5611c; }
+.wk-badge.ok { background: #e7f3e8; color: var(--green-dark); }
+.wk-badge.topper { background: linear-gradient(135deg, #fff6e0, #ffe9b8); color: #8a5a12; border: 1px solid #ecc978; }
 .wkpill.vrij { background: var(--red); color: #fff; }  /* volle vakantieweek */
 .wkpill.cur { outline: 3px solid #2f342f; outline-offset: 1px; }
 

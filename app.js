@@ -235,7 +235,10 @@ function seedWeken(p) {
   for (let w = 0; w < n; w++) {
     const days = Cal.emptyDays();
     Cal.fill(days, 'doordeweeks');
-    if (weekend) Cal.fill(days, 'weekend');
+    if (weekend) { // toppers: ruim weekend (za overdag + avond, zo middag) → topperweek
+      days.sat = { available: true, from: '07:00', to: 'sluit', off: false };
+      days.sun = { available: true, from: '12:00', to: '19:00', off: false };
+    }
     state.weken[w] = days;
   }
 }
@@ -262,6 +265,9 @@ function weekRange(offset) { return `${dateFor(offset, 0)} – ${dateFor(offset,
 
 /* ---- Doel komende 4 weken: 12 diensten, waarvan 3 lastige -------------- */
 const TARGET = { weken: 4, diensten: 12, lastig: 3 };
+// Per-week gradatie tijdens het opgeven (defaults; backend kan per medewerker overschrijven)
+const GREEN = { diensten: 3, lastig: 1 };          // groen: min. 1 lastige + 2 doordeweekse
+const TOPPER = { uren: 40, weekendUren: 16 };      // topper: veel uren, genoeg in het weekend
 function hourNum(t) { if (t === 'sluit' || t === '00:00') return 24; const n = parseInt(t, 10); return isNaN(n) ? null : n; }
 function hourTxt(h) { return h >= 24 ? 'sluit' : String(h).padStart(2, '0') + ':00'; }
 
@@ -336,15 +342,24 @@ function dienstenInWeek(off) {
   const d = state.weken[off];
   return d ? Cal.DAY_KEYS.filter(k => d[k] && d[k].available).length : 0;
 }
-// Kleur van een week-pil: rood (vakantie) / blauw (te weinig diensten) / oranje (te weinig lastige) / groen (ok) / grijs (leeg)
+// Uren beschikbaarheid
+function hoursOf(day) { if (!day || !day.available || day.off) return 0; const f = hourNum(day.from), t = hourNum(day.to); return (f != null && t != null) ? Math.max(0, t - f) : 0; }
+function weekHours(off) { const d = state.weken[off]; return d ? Cal.DAY_KEYS.reduce((s, k) => s + hoursOf(d[k]), 0) : 0; }
+function weekendHours(off) { const d = state.weken[off]; return d ? hoursOf(d.sat) + hoursOf(d.sun) : 0; }
+// Topperweek: veel beschikbaarheid (>40u) waarvan genoeg in het weekend (>16u)
+function isTopperWeek(off) { return weekHours(off) >= TOPPER.uren && weekendHours(off) >= TOPPER.weekendUren; }
+
+// Kleur van een week-pil: rood (vakantie) / topper / groen / oranje / blauw / grijs (leeg)
 function pillClass(w) {
   if (isVakantieWeek(w)) return 'vrij';
   const d = state.weken[w];
   if (!d || Cal.isEmpty(d)) return 'leeg';
+  if (isTopperWeek(w)) return 'topper';
   const p = persona();
-  if ((p.dienstMin || 0) > 0 && dienstenInWeek(w) < p.dienstMin) return 'blauw';   // te weinig diensten
-  if ((p.lastigMin || 0) > 0 && lastigInWeek(w) < p.lastigMin) return 'oranje';     // te weinig lastige
-  return 'has';
+  const gd = p.dienstMin || GREEN.diensten, gl = p.lastigMin || GREEN.lastig;
+  if (dienstenInWeek(w) < gd) return 'blauw';   // begonnen, te weinig diensten
+  if (lastigInWeek(w) < gl) return 'oranje';    // genoeg diensten, nog geen lastige
+  return 'has';                                  // groen: min. gehaald
 }
 // Vakantie + lege weken erna (om te stimuleren)
 function vacInfo() {
@@ -680,6 +695,17 @@ function renderRodeFull() {
   });
 }
 
+// Live badge per week (icoontje bij lastige dienst / topper)
+function weekBadge(off) {
+  const d = state.weken[off];
+  if (isVakantieWeek(off) || !d || Cal.isEmpty(d)) return '';
+  const c = pillClass(off);
+  if (c === 'topper') return '<div class="wk-badge topper">💪🕺 Jij bent echt een topper!</div>';
+  if (c === 'has') return '<div class="wk-badge ok">✅ Top — deze week staat groen</div>';
+  if (c === 'oranje') return '<div class="wk-badge oranje">⭐ Kies nog een lastige dienst (za-avond of zo-middag)</div>';
+  return '<div class="wk-badge blauw">Geef nog wat diensten op…</div>';
+}
+
 function renderEditor() {
   const off = state.weekOffset;
   const sum = Cal.summary(weekDays(off));
@@ -715,6 +741,8 @@ function renderEditor() {
           <button data-wk="1" ${off >= GOAL_WEEKS - 1 ? 'disabled' : ''}>›</button>
         </div>
 
+        <div id="wk-badge">${weekBadge(off)}</div>
+
         ${blue ? '<div class="wknd-head">Begin met het weekend ⭐ = lastige dienst</div>' : ''}
         <div class="weekend-quick">${wkndBtns}</div>
 
@@ -732,9 +760,11 @@ function wireEditor() {
   const grid = el.querySelector('#tg-grid');
   if (grid && window.Cal) {
     Cal.renderBaseWeek(grid, weekDays(state.weekOffset), mondayFor(state.weekOffset), () => {
-      // legenda + de pil van deze week live bijwerken (oranje/groen) zonder de editor te hertekenen
+      // pil-kleur + badge van deze week live bijwerken zonder de editor te hertekenen
       const pill = el.querySelector(`[data-pill="${state.weekOffset}"]`);
       if (pill) pill.className = `wkpill ${pillClass(state.weekOffset)} cur`;
+      const badge = el.querySelector('#wk-badge');
+      if (badge) badge.innerHTML = weekBadge(state.weekOffset);
       const lg = el.querySelector('.legenda');
       if (lg) { const s = Cal.summary(weekDays(state.weekOffset)); lg.innerHTML =
         `<span><i class="lg a"></i> kan werken (${s.kan})</span><span><i class="lg v"></i> vrije dag (${s.vrij})</span>`; }
