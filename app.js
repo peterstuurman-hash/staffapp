@@ -737,17 +737,17 @@ function viewRode() { return rodeInner(persona()); } // fallback (normaal via op
 function rodeInner(p) {
   const zaak = userZaak(p);
   const byDate = (a, b) => a.sort - b.sort;
-  const rood = RODE_PLEKKEN.filter(r => r.zaak === zaak).slice().sort(byDate);
-  const oranje = ORANJE_PLEKKEN.filter(r => r.zaak === zaak).slice().sort(byDate);
+  // Alleen nog écht open plekken tonen — gepakte/aangevraagde staan in "Mijn diensten"
+  const rood = RODE_PLEKKEN.filter(r => r.zaak === zaak && !isGrabbed(r)).slice().sort(byDate);
+  const oranje = ORANJE_PLEKKEN.filter(r => r.zaak === zaak && !isAangevraagd(r)).slice().sort(byDate);
 
   const shift = (r, type) => {
     const key = plekKey(r);
-    const done = type === 'rood' ? isGrabbed(r) : isAangevraagd(r);
     const actie = type === 'rood'
-      ? (done ? '<span class="btn done-chip">✓ Gepakt</span>' : `<button class="btn btn-primary" data-take="${key}" data-type="rood">Pak</button>`)
-      : (done ? '<span class="btn wait-chip">⏳ In behandeling</span>' : `<button class="btn btn-amber" data-take="${key}" data-type="oranje">Aanvragen</button>`);
+      ? `<button class="btn btn-primary" data-take="${key}" data-type="rood">Pak</button>`
+      : `<button class="btn btn-amber" data-take="${key}" data-type="oranje">Aanvragen</button>`;
     return `
-      <div class="shift ${type === 'oranje' ? 'oranje' : ''} ${done ? 'is-done' : ''}">
+      <div class="shift ${type === 'oranje' ? 'oranje' : ''}">
         <div class="when"><b>${r.dag}</b><span>${r.datum}</span></div>
         <div class="info">
           <b>${r.rol} · ${r.zaak}</b>
