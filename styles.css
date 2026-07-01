@@ -238,6 +238,11 @@ html, body {
   border-radius: 999px; padding: 3px 8px; display: inline-block; margin-top: 4px;
 }
 .shift .grab { flex: 0 0 auto; }
+.rode-sub { font-size: 14px; font-weight: 800; color: var(--amber); margin: 20px 2px 12px; }
+.shift.oranje { border-color: #f3d7a8; background: #fffaf1; }
+.shift.is-done { opacity: .55; }
+.done-chip { background: #e7f3e8; color: var(--green-dark); }
+.wait-chip { background: #fdecdd; color: #b5611c; }
 .hot-ribbon {
   display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 800;
   color: #b3261e; background: #fdecea; padding: 6px 11px; border-radius: 999px; margin-bottom: 12px;

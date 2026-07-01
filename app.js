@@ -177,7 +177,8 @@ const state = {
   full: null,          // beeldvullend scherm: null | 'besch' | 'rode'
   // per weekOffset een object { dagIndex: 'a' (beschikbaar) | 'v' (vrije dag) }
   weken: {},
-  grabbed: new Set(),  // gepakte rode plekken
+  grabbed: new Set(),  // gepakte rode plekken (keys)
+  aangevraagd: new Set(), // aangevraagde oranje plekken (keys)
   wkndNudge: {},       // per week: weekend-nudge al getoond?
 };
 
@@ -327,12 +328,22 @@ const DAGEN = ['MA', 'DI', 'WO', 'DO', 'VR', 'ZA', 'ZO'];
 const DAGEN_LANG = ['Maandag', 'Dinsdag', 'Woensdag', 'Donderdag', 'Vrijdag', 'Zaterdag', 'Zondag'];
 
 // Open diensten ("rode plekken")
+// Rode plekken = open diensten in het al gemaakte rooster (op datum)
 const RODE_PLEKKEN = [
-  { dag: 'Za', datum: '05 jul', rol: 'Kelner', tijd: '17:00 – sluit', zaak: 'Branding', bonus: 75, hot: true },
-  { dag: 'Vr', datum: '04 jul', rol: 'Kelner', tijd: '16:30 – sluit', zaak: 'Branding', bonus: 50, hot: true },
-  { dag: 'Zo', datum: '06 jul', rol: 'Runner', tijd: '12:00 – 18:00', zaak: 'Hippiefish', bonus: 40, hot: false },
-  { dag: 'Wo', datum: '02 jul', rol: 'Kelner', tijd: '11:00 – 17:00', zaak: 'Branding', bonus: 25, hot: false },
+  { dag: 'Wo', datum: '02 jul', sort: 2, rol: 'Kelner', tijd: '11:00 – 17:00', zaak: 'Branding' },
+  { dag: 'Vr', datum: '04 jul', sort: 4, rol: 'Kelner', tijd: '16:30 – sluit', zaak: 'Branding' },
+  { dag: 'Za', datum: '05 jul', sort: 5, rol: 'Kelner', tijd: '17:00 – sluit', zaak: 'Branding' },
+  { dag: 'Zo', datum: '06 jul', sort: 6, rol: 'Runner', tijd: '12:00 – 18:00', zaak: 'Branding' },
 ];
+// Oranje plekken = extra diensten (meer mensen op die dag/avond); moeten goedgekeurd worden
+const ORANJE_PLEKKEN = [
+  { dag: 'Za', datum: '05 jul', sort: 5, rol: 'Kelner', tijd: '18:00 – sluit', zaak: 'Branding' },
+  { dag: 'Zo', datum: '06 jul', sort: 6, rol: 'Kelner', tijd: '11:00 – 17:00', zaak: 'Branding' },
+  { dag: 'Vr', datum: '11 jul', sort: 11, rol: 'Kelner', tijd: '18:00 – sluit', zaak: 'Branding' },
+];
+const plekKey = r => r.dag + r.datum + r.rol + r.tijd;
+const PLEK_INDEX = {};
+[...RODE_PLEKKEN, ...ORANJE_PLEKKEN].forEach(r => { PLEK_INDEX[plekKey(r)] = r; });
 
 // Jouw komende diensten
 const MIJN_DIENSTEN = [
@@ -476,7 +487,8 @@ function hasRode() {
   if (isTopper(p)) return false; // toppers niet pushen
   return RODE_PLEKKEN.some(r => r.zaak === userZaak(p) && !isGrabbed(r));
 }
-function isGrabbed(r) { return state.grabbed.has(r.dag + r.datum + r.rol); }
+function isGrabbed(r) { return state.grabbed.has(plekKey(r)); }
+function isAangevraagd(r) { return state.aangevraagd.has(plekKey(r)); }
 
 /* =====================================================================
    8. RENDER — schermen
@@ -623,10 +635,15 @@ function renderRodeFull() {
     </div>
     <div class="ed-body">${rodeInner(persona())}</div>`;
   el.querySelector('#ed-close').onclick = () => { state.tab = 'beschikbaar'; hideFull(); renderAll(); };
-  el.querySelectorAll('[data-grab]').forEach(b => b.onclick = () => {
-    const r = RODE_PLEKKEN[+b.dataset.grab];
-    state.grabbed.add(r.dag + r.datum + r.rol);
-    toast('Dienst gepakt! ✅');
+  el.querySelectorAll('[data-take]').forEach(b => b.onclick = () => {
+    const r = PLEK_INDEX[b.dataset.take];
+    if (b.dataset.type === 'oranje') {
+      state.aangevraagd.add(b.dataset.take);
+      toast('Aanvraag verstuurd — moet nog goedgekeurd worden. Je krijgt z.s.m. reactie via de staffapp.');
+    } else {
+      state.grabbed.add(b.dataset.take);
+      toast('Dienst gepakt! ✅');
+    }
     renderRodeFull();
   });
 }
@@ -717,42 +734,33 @@ function wireEditor() {
 function viewRode() { return rodeInner(persona()); } // fallback (normaal via openFull)
 function rodeInner(p) {
   const zaak = userZaak(p);
-  const topper = isTopper(p);
+  const byDate = (a, b) => a.sort - b.sort;
+  const rood = RODE_PLEKKEN.filter(r => r.zaak === zaak).slice().sort(byDate);
+  const oranje = ORANJE_PLEKKEN.filter(r => r.zaak === zaak).slice().sort(byDate);
 
-  // Nooit zaken mixen: alleen open diensten van de eigen zaak
-  const mine = RODE_PLEKKEN
-    .map((r, i) => ({ r, i }))
-    .filter(({ r }) => r.zaak === zaak);
-  const open = mine.filter(({ r }) => !isGrabbed(r));
-
-  const shift = ({ r, i }, promo) => {
-    const grabbed = isGrabbed(r);
+  const shift = (r, type) => {
+    const key = plekKey(r);
+    const done = type === 'rood' ? isGrabbed(r) : isAangevraagd(r);
+    const actie = type === 'rood'
+      ? (done ? '<span class="btn done-chip">✓ Gepakt</span>' : `<button class="btn btn-primary" data-take="${key}" data-type="rood">Pak</button>`)
+      : (done ? '<span class="btn wait-chip">⏳ In behandeling</span>' : `<button class="btn btn-amber" data-take="${key}" data-type="oranje">Aanvragen</button>`);
     return `
-      <div class="shift" style="${grabbed ? 'opacity:.5' : ''}">
+      <div class="shift ${type === 'oranje' ? 'oranje' : ''} ${done ? 'is-done' : ''}">
         <div class="when"><b>${r.dag}</b><span>${r.datum}</span></div>
         <div class="info">
           <b>${r.rol} · ${r.zaak}</b>
           <div class="meta">${r.tijd}</div>
-          ${promo && r.hot ? '<span class="bonus">🔥 snel nodig</span>' : ''}
         </div>
-        <div class="grab">
-          ${grabbed
-            ? '<span class="btn" style="background:#e7f3e8;color:#3f7d45">✓ Gepakt</span>'
-            : `<button class="btn btn-primary" data-grab="${i}">Pak</button>`}
-        </div>
+        <div class="grab">${actie}</div>
       </div>`;
   };
 
-  // Toppers: niet promoten — gewoon de open diensten, geen praatjes
-  if (topper) {
-    return `
-      <div class="screen-title">Rode plekken</div>
-      ${open.length ? open.map(o => shift(o, false)).join('') : '<p class="muted small">Geen open diensten.</p>'}`;
-  }
-
   return `
     <div class="screen-title">Rode plekken</div>
-    ${mine.length ? mine.map(o => shift(o, true)).join('') : '<p class="muted small">Geen open diensten.</p>'}`;
+    ${rood.length ? rood.map(r => shift(r, 'rood')).join('') : '<p class="muted small">Geen open diensten.</p>'}
+
+    <div class="rode-sub">🟠 Oranje plekken · extra diensten</div>
+    ${oranje.length ? oranje.map(r => shift(r, 'oranje')).join('') : '<p class="muted small">Geen extra diensten.</p>'}`;
 }
 
 /* ---- 8c. Wanneer ingeroosterd ---- */
@@ -1060,7 +1068,7 @@ function openPersonaSheet() {
     ${rows}`);
   document.querySelectorAll('[data-px]').forEach(r => r.onclick = () => {
     state.personaIx = +r.dataset.px;
-    state.weekOffset = 0; state.grabbed = new Set();
+    state.weekOffset = 0; state.grabbed = new Set(); state.aangevraagd = new Set();
     seedWeken(persona());
     closeSheet();
     renderAll();
