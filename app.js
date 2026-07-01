@@ -179,8 +179,10 @@ const state = {
   weken: {},
   grabbed: new Set(),  // gepakte rode plekken (keys)
   aangevraagd: new Set(), // aangevraagde oranje plekken (keys)
+  dienst: {},          // per dienst-id: { meeEten, ruilen }
   wkndNudge: {},       // per week: weekend-nudge al getoond?
 };
+function dienstStateOf(id) { return state.dienst[id] || (state.dienst[id] = { meeEten: false, ruilen: false }); }
 
 // Nudge: bij een lege week die met een doordeweekse dag begint → eerst het weekend
 function maybeWeekendNudge() {
@@ -330,26 +332,26 @@ const DAGEN_LANG = ['Maandag', 'Dinsdag', 'Woensdag', 'Donderdag', 'Vrijdag', 'Z
 // Open diensten ("rode plekken")
 // Rode plekken = open diensten in het al gemaakte rooster (op datum)
 const RODE_PLEKKEN = [
-  { dag: 'Wo', datum: '02 jul', sort: 2, rol: 'Kelner', tijd: '11:00 – 17:00', zaak: 'Branding' },
-  { dag: 'Vr', datum: '04 jul', sort: 4, rol: 'Kelner', tijd: '16:30 – sluit', zaak: 'Branding' },
-  { dag: 'Za', datum: '05 jul', sort: 5, rol: 'Kelner', tijd: '17:00 – sluit', zaak: 'Branding' },
-  { dag: 'Zo', datum: '06 jul', sort: 6, rol: 'Runner', tijd: '12:00 – 18:00', zaak: 'Branding' },
+  { dag: 'Wo', datum: '02 jul', sort: 702.11, rol: 'Kelner', tijd: '11:00 – 17:00', zaak: 'Branding' },
+  { dag: 'Vr', datum: '04 jul', sort: 704.16, rol: 'Kelner', tijd: '16:30 – sluit', zaak: 'Branding' },
+  { dag: 'Za', datum: '05 jul', sort: 705.17, rol: 'Kelner', tijd: '17:00 – sluit', zaak: 'Branding' },
+  { dag: 'Zo', datum: '06 jul', sort: 706.12, rol: 'Runner', tijd: '12:00 – 18:00', zaak: 'Branding' },
 ];
 // Oranje plekken = extra diensten (meer mensen op die dag/avond); moeten goedgekeurd worden
 const ORANJE_PLEKKEN = [
-  { dag: 'Za', datum: '05 jul', sort: 5, rol: 'Kelner', tijd: '18:00 – sluit', zaak: 'Branding' },
-  { dag: 'Zo', datum: '06 jul', sort: 6, rol: 'Kelner', tijd: '11:00 – 17:00', zaak: 'Branding' },
-  { dag: 'Vr', datum: '11 jul', sort: 11, rol: 'Kelner', tijd: '18:00 – sluit', zaak: 'Branding' },
+  { dag: 'Za', datum: '05 jul', sort: 705.18, rol: 'Kelner', tijd: '18:00 – sluit', zaak: 'Branding' },
+  { dag: 'Zo', datum: '06 jul', sort: 706.11, rol: 'Kelner', tijd: '11:00 – 17:00', zaak: 'Branding' },
+  { dag: 'Vr', datum: '11 jul', sort: 711.18, rol: 'Kelner', tijd: '18:00 – sluit', zaak: 'Branding' },
 ];
 const plekKey = r => r.dag + r.datum + r.rol + r.tijd;
 const PLEK_INDEX = {};
 [...RODE_PLEKKEN, ...ORANJE_PLEKKEN].forEach(r => { PLEK_INDEX[plekKey(r)] = r; });
 
-// Jouw komende diensten
+// Jouw ingeroosterde diensten (sort = maand*100 + dag + uur/100)
 const MIJN_DIENSTEN = [
-  { dag: 'Maandag 30 jun', tijd: '10:00 – sluit', rol: 'Kelner', zaak: 'Branding', soon: true },
-  { dag: 'Donderdag 03 jul', tijd: '17:00 – sluit', rol: 'Kelner', zaak: 'Branding' },
-  { dag: 'Zaterdag 05 jul', tijd: '16:30 – sluit', rol: 'Kelner', zaak: 'Branding' },
+  { id: 'md1', dag: 'Ma', datum: '30 jun', sort: 630.10, tijd: '10:00 – sluit', rol: 'Kelner', zaak: 'Branding' },
+  { id: 'md2', dag: 'Do', datum: '03 jul', sort: 703.17, tijd: '17:00 – sluit', rol: 'Kelner', zaak: 'Branding' },
+  { id: 'md3', dag: 'Za', datum: '05 jul', sort: 705.16, tijd: '16:30 – sluit', rol: 'Kelner', zaak: 'Branding' },
 ];
 
 // Teamrooster per dag (zoals huidige app) — vereenvoudigd
@@ -765,47 +767,58 @@ function rodeInner(p) {
 
 /* ---- 8c. Wanneer ingeroosterd ---- */
 function viewIngeroosterd() {
-  const first = MIJN_DIENSTEN[0];
-  const rest = MIJN_DIENSTEN.slice(1).map(d => `
-    <div class="tl-item">
-      <div class="d">${d.dag}</div>
-      <div class="t">${d.tijd} · ${d.rol} · ${d.zaak}</div>
-    </div>`).join('');
+  // Alle diensten waarvoor je ingeroosterd staat (eigen + gepakte rode), op datum/tijd
+  const gepakt = [...state.grabbed].map(k => ({ ...PLEK_INDEX[k], id: 'r_' + k })).filter(x => x.dag);
+  const eigen = [...MIJN_DIENSTEN, ...gepakt].slice().sort((a, b) => a.sort - b.sort);
 
-  // Gepakte rode + aangevraagde oranje diensten erbij
-  const gepakt = [...state.grabbed].map(k => PLEK_INDEX[k]).filter(Boolean);
-  const aangevraagd = [...state.aangevraagd].map(k => PLEK_INDEX[k]).filter(Boolean);
-  const extraRow = (r, tag) => `
-    <div class="tl-item ${tag === 'aanvraag' ? 'dim' : ''}">
-      <div class="d">${r.dag} ${r.datum} ${tag === 'aanvraag' ? '<span class="pill-wait">in aanvraag</span>' : ''}</div>
-      <div class="t">${r.tijd} · ${r.rol} · ${r.zaak}</div>
-    </div>`;
-  const extra = (gepakt.length || aangevraagd.length) ? `
-    <div class="card">
-      <h3>Zelf gepakt / aangevraagd</h3>
-      <div class="timeline">
-        ${gepakt.map(r => extraRow(r, 'gepakt')).join('')}
-        ${aangevraagd.map(r => extraRow(r, 'aanvraag')).join('')}
-      </div>
-    </div>` : '';
+  const rows = eigen.map(d => {
+    const st = dienstStateOf(d.id);
+    const marks = `${st.meeEten ? ' 🍽️' : ''}`;
+    const ruilTag = st.ruilen ? '<div class="dienst-ruil">🔁 Aangeboden voor ruilen — nog niet bevestigd</div>' : '';
+    return `
+      <div class="dienst" data-dienst="${d.id}">
+        <div class="dienst-when"><b>${d.dag}</b><span>${d.datum}</span></div>
+        <div class="dienst-info">
+          <b>${d.rol} · ${d.zaak}${marks}</b>
+          <div class="meta">${d.tijd}</div>
+          ${ruilTag}
+        </div>
+        <div class="dienst-chev">›</div>
+      </div>`;
+  }).join('');
+
+  // Aangevraagde oranje diensten (nog niet bevestigd)
+  const aangevraagd = [...state.aangevraagd].map(k => PLEK_INDEX[k]).filter(Boolean).sort((a, b) => a.sort - b.sort);
+  const aanvraagRows = aangevraagd.map(r => `
+    <div class="dienst dim">
+      <div class="dienst-when"><b>${r.dag}</b><span>${r.datum}</span></div>
+      <div class="dienst-info"><b>${r.rol} · ${r.zaak}</b><div class="meta">${r.tijd}</div></div>
+      <span class="pill-wait">in aanvraag</span>
+    </div>`).join('');
 
   return `
     <div class="screen-title">Mijn diensten</div>
+    <div class="card flat" style="padding:4px 12px">${rows || '<p class="muted small">Geen diensten ingepland.</p>'}</div>
+    ${aangevraagd.length ? `<div class="rode-sub" style="color:var(--amber)">🟠 In aanvraag</div><div class="card flat" style="padding:4px 12px">${aanvraagRows}</div>` : ''}`;
+}
 
-    <div class="next-shift">
-      <div class="lbl">Eerstvolgende dienst</div>
-      <div class="big">${first.dag}</div>
-      <div class="cd">${first.tijd} · ${first.rol} · ${first.zaak}</div>
-    </div>
-
-    <div class="card">
-      <h3>Daarna</h3>
-      <div class="timeline">
-        ${rest || '<p class="muted small">Geen verdere diensten ingepland.</p>'}
-      </div>
-    </div>
-
-    ${extra}`;
+// Actie-paneel bij tikken op een eigen dienst
+function openDienstSheet(id) {
+  const all = [...MIJN_DIENSTEN, ...[...state.grabbed].map(k => ({ ...PLEK_INDEX[k], id: 'r_' + k }))];
+  const d = all.find(x => x.id === id);
+  if (!d) return;
+  const st = dienstStateOf(id);
+  openSheet(`
+    <h2>${d.dag} ${d.datum}</h2>
+    <p class="sub">${d.tijd} · ${d.rol} · ${d.zaak}</p>
+    <button class="btn ${st.meeEten ? 'btn-primary' : 'btn-ghost'} btn-block" id="ds-eten">${st.meeEten ? '✓ Mee eten aangevinkt' : '🍽️ Mee eten'}</button>
+    <button class="btn btn-ghost btn-block" id="ds-ruil" style="margin-top:10px" ${st.ruilen ? 'disabled' : ''}>${st.ruilen ? '🔁 Aangeboden voor ruilen' : '🔁 Deze dienst ruilen'}</button>
+    <button class="btn btn-link btn-block" id="ds-close" style="margin-top:8px">Sluit</button>`);
+  const sh = document.getElementById('sheet');
+  sh.querySelector('#ds-close').onclick = closeSheet;
+  sh.querySelector('#ds-eten').onclick = () => { st.meeEten = !st.meeEten; toast(st.meeEten ? 'Mee eten aangevinkt 🍽️' : 'Mee eten uitgezet'); openDienstSheet(id); renderView(); };
+  const ruil = sh.querySelector('#ds-ruil');
+  if (ruil && !st.ruilen) ruil.onclick = () => { st.ruilen = true; closeSheet(); renderView(); toast('Dienst aangeboden voor ruilen — nog niet bevestigd'); };
 }
 
 /* ---- 8d. Rooster (team) ---- */
@@ -965,6 +978,9 @@ function wireView() {
 
   // Startscherm: mededeling-knoppen
   v.querySelectorAll('[data-mdl]').forEach(b => b.onclick = () => go(b.dataset.mdl));
+
+  // Mijn diensten: tik een dienst → actie-paneel
+  v.querySelectorAll('[data-dienst]').forEach(b => b.onclick = () => openDienstSheet(b.dataset.dienst));
 
   // Overig: menu-items
   v.querySelectorAll('[data-overig]').forEach(m => m.onclick = () => {
