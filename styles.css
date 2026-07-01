@@ -424,27 +424,30 @@ html, body {
 .copy-row { display: flex; align-items: center; gap: 11px; padding: 11px 13px; border: 1px solid var(--line); border-radius: 11px; background: #fafbf9; cursor: pointer; }
 .copy-row input { width: 20px; height: 20px; accent-color: var(--green); }
 
-/* ====== Sleep-kalender (time grid) — overgenomen uit onboarding-tool ====== */
+/* ====== Sleep-kalender (time grid) — mobiel-geoptimaliseerd ====== */
 #tg-grid.tg {
-  display: grid; grid-template-columns: 30px repeat(7, 1fr); gap: 3px;
+  display: grid; grid-template-columns: 34px repeat(7, 1fr); gap: 4px;
   user-select: none; -webkit-user-select: none; touch-action: none; margin: 2px 0 4px;
+  overscroll-behavior: contain;
 }
+/* touch-action erft niet → óók op alle grid-onderdelen, anders scrollt de pagina tijdens slepen */
+#tg-grid.tg * { touch-action: none; }
 .tg-day { position: relative; text-align: center; font-size: 11px; line-height: 1.15; padding-bottom: 3px; }
 .tg-day .dn { font-weight: 800; display: block; }
 .tg-day .dd { color: var(--muted); font-size: 9px; display: block; }
 .tg-day .rng { display: block; font-size: 8px; color: var(--green-dark); font-weight: 800; min-height: 11px; }
 .tg-day.isoff .rng { color: #b3261e; }
 .tg-day.tg-wknd .dn { color: #b8741f; }
-.tg-acts { display: flex; justify-content: center; gap: 4px; margin-top: 2px; }
-.tg-on, .tg-off { border: 1px solid var(--line); background: #fff; cursor: pointer; font-size: 11px; line-height: 1; padding: 3px 5px; border-radius: 7px; }
+.tg-acts { display: flex; justify-content: center; gap: 4px; margin-top: 3px; }
+.tg-on, .tg-off { border: 1px solid var(--line); background: #fff; cursor: pointer; font-size: 13px; line-height: 1; padding: 6px 7px; border-radius: 8px; min-width: 30px; }
 .tg-on { background: #fff; border-color: var(--green); color: var(--green); }   /* leeg = groene omtrek (uitnodigend, niet ingevuld) */
 .tg-off { border-color: #f0cecb; }
 .tg-on:active, .tg-off:active { transform: scale(.9); }
 .tg-day.fullon .tg-on { background: var(--green); border-color: var(--green); color: #fff; }  /* hele dag aan = vol groen */
 .tg-day.isoff .tg-on { background: #fff; border-color: var(--line); color: #c2c7c0; }  /* gedimd als de dag op vrij staat */
 .tg-day.isoff .tg-off { background: #e8a59f; border-color: #e8a59f; }
-.tg-time { font-size: 9px; color: var(--muted); text-align: right; padding-right: 3px; align-self: center; }
-.tg-cell { height: 17px; background: #eceeea; border-radius: 4px; cursor: pointer; }
+.tg-time { font-size: 10px; color: var(--muted); text-align: right; padding-right: 4px; align-self: center; }
+.tg-cell { height: 26px; background: #eceeea; border-radius: 5px; cursor: pointer; }
 .tg-cell.tg-wknd { background: #f3e8d8; }
 .tg-cell.on { background: var(--green); box-shadow: inset 0 0 0 1px rgba(0,0,0,.05); }
 .tg-cell.off { background: repeating-linear-gradient(45deg, #f3c9c5, #f3c9c5 4px, #ecbcb7 4px, #ecbcb7 8px); }
