@@ -616,13 +616,24 @@ function viewHome() {
         </div>
       </div>`).join('');
   } else {
-    // Niets te melden → schoon blok + eerstvolgende dienst
     const d = MIJN_DIENSTEN[0];
+    const mw = firstMissingWeek();
+    // Geen alert, maar nog een week open → nudge om alvast vooruit op te geven
+    const top = mw
+      ? `<div class="mdl sun">
+           <div class="mdl-ic">📅</div>
+           <div class="mdl-body">
+             <div class="mdl-title">Alvast vooruit opgeven?</div>
+             <div class="mdl-text">Geef alvast week ${mw} op — dan zit je goed voor de komende weken.</div>
+             <button class="btn btn-primary mdl-cta" data-vulweek="${mw - FIRST_WEEK}">Vul week ${mw} in</button>
+           </div>
+         </div>`
+      : `<div class="mdl-leeg">
+           <div class="mdl-leeg-ic">✓</div>
+           <div class="mdl-leeg-t">Helemaal bij — alle weken staan goed.</div>
+         </div>`;
     midden = `
-      <div class="mdl-leeg">
-        <div class="mdl-leeg-ic">✓</div>
-        <div class="mdl-leeg-t">Niets te melden — je staat er goed voor.</div>
-      </div>
+      ${top}
       <div class="next-shift" style="margin-top:14px">
         <div class="lbl">Eerstvolgende dienst</div>
         <div class="big">${d.dag}</div>
@@ -1056,6 +1067,8 @@ function wireView() {
 
   // Startscherm: mededeling-knoppen
   v.querySelectorAll('[data-mdl]').forEach(b => b.onclick = () => go(b.dataset.mdl));
+  // Startscherm: "vul week X in" → open editor op die week
+  v.querySelectorAll('[data-vulweek]').forEach(b => b.onclick = () => { state.weekOffset = +b.dataset.vulweek; openEditor(); });
 
   // Mijn diensten: tik een dienst → actie-paneel
   v.querySelectorAll('[data-dienst]').forEach(b => b.onclick = () => openDienstSheet(b.dataset.dienst));
