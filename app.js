@@ -678,26 +678,23 @@ function actieVeld(p) {
   return `<div class="coach ok"><div class="coach-head">Je beschikbaarheid is op orde. Bedankt!</div></div>`;
 }
 
-/* ---- 8a. Beschikbaarheid — ACTIE-scherm (landing) ---- */
+/* ---- 8a. Beschikbaarheid — weken-overzicht (landing) ---- */
 function viewBeschikbaar() {
-  const p = persona();
-
-  // Weeknummers 29..38 met status; tik een week om die te openen
+  const mw = firstMissingWeek();
   const pillen = Array.from({ length: GOAL_WEEKS }, (_, w) =>
     `<button class="wkpill ${pillClass(w)}" data-week="${w}">${weekNr(w)}</button>`).join('');
 
   return `
-    ${actieVeld(p)}
-
+    <div class="screen-title">Beschikbaarheid</div>
     <div class="card">
-      <div class="row between" style="margin-bottom:10px">
-        <b>Jouw weken</b>
-        <span class="small muted">tik een week om op te geven</span>
-      </div>
       <div class="wkpills">${pillen}</div>
+      <div class="wk-legend">
+        <span><i class="d green"></i>goed</span>
+        <span><i class="d blue"></i>te weinig</span>
+        <span><i class="d grey"></i>nog open</span>
+      </div>
     </div>
-
-    <button class="btn btn-primary btn-block" id="open-editor">${firstMissingWeek() ? 'Vul week ' + firstMissingWeek() + ' in' : 'Beschikbaarheid'}</button>`;
+    <button class="btn btn-primary btn-block" id="open-editor">${mw ? 'Vul week ' + mw + ' in' : 'Beschikbaarheid opgeven'}</button>`;
 }
 
 /* ---- Beeldvullend full-screen systeem (beschikbaarheid én rode plekken) ---- */
@@ -835,9 +832,7 @@ function rodeInner(p) {
 
   const shift = (r, type) => {
     const key = plekKey(r);
-    const actie = type === 'rood'
-      ? `<button class="btn btn-primary" data-take="${key}" data-type="rood">Pak</button>`
-      : `<button class="btn btn-amber" data-take="${key}" data-type="oranje">Aanvragen</button>`;
+    const label = type === 'rood' ? 'Pak' : 'Aanvragen';
     return `
       <div class="shift ${type === 'oranje' ? 'oranje' : ''}">
         <div class="when"><b>${r.dag}</b><span>${r.datum}</span></div>
@@ -845,7 +840,7 @@ function rodeInner(p) {
           <b>${r.rol} · ${r.zaak}</b>
           <div class="meta">${r.tijd}</div>
         </div>
-        <div class="grab">${actie}</div>
+        <div class="grab"><button class="btn btn-primary" data-take="${key}" data-type="${type === 'rood' ? 'rood' : 'oranje'}">${label}</button></div>
       </div>`;
   };
 
@@ -853,7 +848,7 @@ function rodeInner(p) {
     <div class="screen-title">Rode plekken</div>
     ${rood.length ? rood.map(r => shift(r, 'rood')).join('') : '<p class="muted small">Geen open diensten.</p>'}
 
-    <div class="rode-sub">🟠 Oranje plekken · extra diensten</div>
+    <div class="rode-sub">Extra diensten <span class="small muted">— goedkeuring nodig</span></div>
     ${oranje.length ? oranje.map(r => shift(r, 'oranje')).join('') : '<p class="muted small">Geen extra diensten.</p>'}`;
 }
 
