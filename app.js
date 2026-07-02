@@ -740,7 +740,7 @@ function weekBadge(off) {
   if (isVakantieWeek(off) || !d || Cal.isEmpty(d)) return '';
   const c = pillClass(off);
   if (c === 'has') return '<div class="wk-badge ok">✅ Top — deze week staat groen</div>';
-  return '<div class="wk-badge blauw">Nog te weinig — geef meer diensten op</div>';
+  return ''; // geen "te weinig"-melding (de blauwe pil zegt het al)
 }
 
 function renderEditor() {
@@ -749,7 +749,6 @@ function renderEditor() {
   const pillen = Array.from({ length: GOAL_WEEKS }, (_, w) =>
     `<button class="wkpill ${pillClass(w)} ${w === off ? 'cur' : ''}" data-pill="${w}">${weekNr(w)}</button>`).join('');
 
-  const blue = persona().status === 'blauw';
   const days = weekDays(off);
   const wkndBtns = WEEKEND.map((w, i) =>
     `<button class="lqbtn ${wkndActive(w, days) ? 'on' : ''} ${w.lastig ? 'lastig' : ''}" data-wknd="${i}">${w.label}<span>${w.sub}</span></button>`
@@ -775,7 +774,6 @@ function renderEditor() {
 
         <div id="wk-badge">${weekBadge(off)}</div>
 
-        ${blue ? '<div class="wknd-tip">Tip: begin met je weekend ★</div>' : ''}
         <div class="weekend-quick">${wkndBtns}</div>
 
         ${gridBlock}
