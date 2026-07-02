@@ -1123,7 +1123,13 @@ function openCopySheet() {
   sheet.querySelector('#copy-go').onclick = () => {
     const sel = [...sheet.querySelectorAll('[data-copy]')].filter(c => c.checked).map(c => +c.dataset.copy);
     sel.forEach(w => state.weken[w] = Cal.cloneDays(src));
-    closeSheet(); renderStatus(); renderView();
+    closeSheet(); renderStatus(); renderEditor(); // editor bijwerken → weekpillen kleuren mee (niet grijs)
+    // animatie: de gekopieerde weken poppen na elkaar op
+    const ed = document.getElementById('editor');
+    sel.forEach((w, i) => {
+      const pill = ed.querySelector(`[data-pill="${w}"]`);
+      if (pill) { pill.style.animationDelay = (i * 70) + 'ms'; pill.classList.add('copied'); }
+    });
     toast(`Gekopieerd naar ${sel.length} ${sel.length === 1 ? 'week' : 'weken'} ✓`);
   };
 }

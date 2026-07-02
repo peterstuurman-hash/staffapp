@@ -411,6 +411,9 @@ html, body {
 .wk-badge.topper { background: linear-gradient(135deg, #fff6e0, #ffe9b8); color: #8a5a12; border: 1px solid #ecc978; }
 .wkpill.vrij { background: var(--red); color: #fff; }  /* volle vakantieweek */
 .wkpill.cur { outline: 3px solid #2f342f; outline-offset: 1px; }
+/* Pop-animatie op net-gekopieerde weken */
+@keyframes copypop { 0% { transform: scale(1); } 35% { transform: scale(1.28); box-shadow: 0 0 0 5px rgba(79,157,87,.35); } 100% { transform: scale(1); box-shadow: none; } }
+.wkpill.copied { animation: copypop .55s ease both; }
 
 .quick { display: flex; flex-wrap: wrap; gap: 7px; margin: 4px 0 12px; }
 .qbtn { border: 1.5px solid var(--line); background: #fff; border-radius: 999px; padding: 8px 12px; font-size: 12.5px; font-weight: 700; cursor: pointer; }
