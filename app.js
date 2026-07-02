@@ -780,9 +780,10 @@ function renderEditor() {
 
         ${gridBlock}
       </div>
-
-      <button class="btn btn-primary btn-block btn-copy" id="open-copy">📋 Kopieer week ${weekNr(off)} naar volgende weken</button>
-      <button class="btn btn-ghost btn-block" id="ed-done" style="margin-top:10px">Klaar</button>
+    </div>
+    <div class="ed-foot">
+      <button class="btn btn-ghost btn-copy" id="open-copy">📋 Kopieer vooruit</button>
+      <button class="btn btn-primary" id="ed-done">Klaar</button>
     </div>`;
 
   wireEditor();
