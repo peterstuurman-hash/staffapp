@@ -41,7 +41,7 @@ const STATUS = {
   },
   newbee: {
     theme: 't-sunrise', icons: '🌱', badge: 'Newbee',
-    title: 'Welkom in de familie!',
+    title: 'Welkom bij Branding',
     sub: 'Samen bouwen we je eerste 13 weken op', level: 0, newbee: true,
   },
   vakantie: {
@@ -285,6 +285,11 @@ function mondayFor(off) {
   const d = new Date(BASE_MONDAY); d.setDate(d.getDate() + off * 7); return d;
 }
 function weekNr(offset) { return FIRST_WEEK + offset; }
+// Eerste week die nog leeg is (weeknummer), of null als alles is ingevuld
+function firstMissingWeek() {
+  for (let w = 0; w < GOAL_WEEKS; w++) { const d = state.weken[w]; if (!d || Cal.isEmpty(d)) return weekNr(w); }
+  return null;
+}
 function dateFor(offset, day) {
   const d = new Date(BASE_MONDAY);
   d.setDate(d.getDate() + offset * 7 + day);
@@ -500,10 +505,9 @@ function renderStatus() {
 
   const xpBlock = ''; // voortgangsbalk verwijderd (te veel tekst)
 
-  // "Bijna blauw" krijgt een live aftelklok i.p.v. een simpele chip
-  const alertChip = (s.alert && p.blauwOver)
-    ? `<div class="cd-mini" id="cd-mini">${countdownMini(BLAUW_DEADLINE - Date.now())}</div>`
-    : (s.alert ? `<div class="sb-alertchip">⚠️ ${s.alert}</div>` : '');
+  // Waarschuwing (amber): welke week ontbreekt nog — geen aftelklok meer
+  const mw = firstMissingWeek();
+  const alertChip = s.alert ? `<div class="sb-alertchip">${mw ? 'Week ' + mw + ' ontbreekt nog' : 'Geef je beschikbaarheid op'}</div>` : '';
 
   let msg = `
     <div class="sb-msg">
@@ -587,11 +591,13 @@ function renderView() {
 // Persoonlijke mededelingen op basis van de status van de medewerker
 function mededelingen(p) {
   const naam = p.naam.split(' ')[0];
+  const mw = firstMissingWeek();
+  const vulCta = mw ? `Vul week ${mw} in` : 'Beschikbaarheid';
   const list = [];
-  if (p.status === 'bijna_blauw') list.push({ ic: '⏳', kl: 'amber', title: 'Je wordt bijna blauw', text: `${naam}, geef snel beschikbaarheid op voor het komende rooster.`, cta: 'Beschikbaarheid opgeven', tab: 'beschikbaar' });
-  if (p.status === 'blauw') list.push({ ic: '💧', kl: 'blue', title: 'Te weinig beschikbaarheid', text: `${naam}, geef op voor de komende 4 weken — anders kun je niet ingeroosterd worden.`, cta: 'Beschikbaarheid opgeven', tab: 'beschikbaar' });
-  if (p.status === 'newbee') list.push({ ic: '🌱', kl: 'sun', title: 'Welkom bij Branding', text: `${naam}, geef je eerste weken op zodat we je kunnen inplannen.`, cta: 'Beschikbaarheid opgeven', tab: 'beschikbaar' });
-  if (p.status === 'vakantie') list.push({ ic: '🏖️', kl: 'purple', title: 'Beschikbaarheid ná je vakantie', text: `${naam}, geef de weken na je vakantie op.`, cta: 'Beschikbaarheid opgeven', tab: 'beschikbaar' });
+  if (p.status === 'bijna_blauw') list.push({ ic: '⏳', kl: 'amber', title: 'Je wordt bijna blauw', text: `${naam}, ${mw ? 'week ' + mw + ' ontbreekt nog.' : 'geef snel je beschikbaarheid op.'}`, cta: vulCta, tab: 'beschikbaar' });
+  if (p.status === 'blauw') list.push({ ic: '💧', kl: 'blue', title: 'Te weinig beschikbaarheid', text: `${naam}, geef meer weken op zodat je ingeroosterd kunt worden.`, cta: vulCta, tab: 'beschikbaar' });
+  if (p.status === 'newbee') list.push({ ic: '🌱', kl: 'sun', title: 'Welkom bij Branding', text: `${naam}, geef je eerste weken op zodat we je kunnen inplannen.`, cta: vulCta, tab: 'beschikbaar' });
+  if (p.status === 'vakantie') list.push({ ic: '🏖️', kl: 'purple', title: 'Beschikbaarheid ná je vakantie', text: `${naam}, geef de weken na je vakantie op.`, cta: vulCta, tab: 'beschikbaar' });
   return list;
 }
 function viewHome() {
@@ -680,7 +686,7 @@ function viewBeschikbaar() {
       <div class="wkpills">${pillen}</div>
     </div>
 
-    <button class="btn btn-primary btn-block" id="open-editor">Beschikbaarheid opgeven</button>`;
+    <button class="btn btn-primary btn-block" id="open-editor">${firstMissingWeek() ? 'Vul week ' + firstMissingWeek() + ' in' : 'Beschikbaarheid'}</button>`;
 }
 
 /* ---- Beeldvullend full-screen systeem (beschikbaarheid én rode plekken) ---- */
@@ -740,10 +746,8 @@ function renderEditor() {
   const wkndBtns = WEEKEND.map((w, i) =>
     `<button class="lqbtn ${wkndActive(w, days) ? 'on' : ''} ${w.lastig ? 'lastig' : ''}" data-wknd="${i}">${w.label}<span>${w.sub}</span></button>`
   ).join('');
-  // Blauw: verplicht eerst het weekend; pas daarna de rest van de week
-  const gridBlock = (blue && WEEKEND_VERPLICHT && !weekHasWeekend())
-    ? `<div class="wknd-lock">🔒 Geef eerst je weekend op. Daarna kun je de rest van de week invullen.</div>`
-    : `<div id="tg-grid"></div>
+  // Grid staat altijd open; alleen een tip om met het weekend te beginnen
+  const gridBlock = `<div id="tg-grid"></div>
        <div class="legenda">
          <span><i class="lg a"></i> kan werken (${sum.kan})</span>
          <span><i class="lg v"></i> vrije dag (${sum.vrij})</span>
@@ -766,7 +770,7 @@ function renderEditor() {
 
         <div id="wk-badge">${weekBadge(off)}</div>
 
-        ${blue ? '<div class="wknd-head">Begin met het weekend ⭐ = lastige dienst</div>' : ''}
+        ${blue ? '<div class="wknd-tip">Tip: begin met je weekend ★</div>' : ''}
         <div class="weekend-quick">${wkndBtns}</div>
 
         ${gridBlock}
@@ -929,8 +933,7 @@ function viewRooster() {
     <div class="roster-row">
       <div class="time"><b>${r.tijd}</b><span>${r.uit}</span></div>
       <div class="ava">${r.naam.split(' ')[0][0]}</div>
-      <div class="nm"><b class="${r.kl}">${r.naam}</b><div class="fn">${r.fn}</div></div>
-      <div class="ic">${r.ic}</div>
+      <div class="nm"><b>${r.naam}</b><div class="fn">${r.fn}</div></div>
     </div>`).join('');
 
   return `${head}
@@ -966,8 +969,8 @@ function viewOverig() {
       <div class="row">
         <div style="font-size:30px">🏆</div>
         <div style="flex:1">
-          <b>Familie &amp; Toppers</b>
-          <div class="small muted">Onze toppers, newbees en wie het goed doet</div>
+          <b>Team &amp; Toppers</b>
+          <div class="small muted">Onze toppers en newbees</div>
         </div>
         <div class="mi-chev" style="font-size:22px">›</div>
       </div>
@@ -1015,7 +1018,7 @@ function viewFamilie() {
   const groenenHtml = groenen.map(t => `<span class="green-name">✅ ${t.naam}</span>`).join('');
 
   return `
-    <div class="screen-title">Familie &amp; Toppers</div>
+    <div class="screen-title">Team &amp; Toppers</div>
 
     <div class="card">
       <h3>💪 Onze toppers</h3>
@@ -1025,11 +1028,6 @@ function viewFamilie() {
     <div class="card">
       <h3>🌱 Onze newbees</h3>
       ${newbeesHtml || '<span class="muted small">Geen newbees op dit moment.</span>'}
-    </div>
-
-    <div class="card">
-      <h3>💚 Groene namen</h3>
-      <div class="green-names">${groenenHtml || '<span class="muted small">—</span>'}</div>
     </div>`;
 }
 
@@ -1260,5 +1258,4 @@ function dismissPush(el) { if (el && el.parentNode) { el.classList.remove('in');
 document.getElementById('persona-fab').onclick = openPersonaSheet;
 seedWeken(persona());
 renderAll();
-startTicker();   // live aftelklok
 showPush();      // push bij openen (inloggen)

@@ -94,7 +94,7 @@ html, body {
 .sb-msg { margin-top: 11px; display: flex; align-items: center; gap: 10px; }
 .sb-icons { font-size: 24px; line-height: 1; flex: 0 0 auto; }
 .sb-text { font-size: 14.5px; font-weight: 700; }
-.sb-sub { font-size: 12px; opacity: .9; font-weight: 500; margin-top: 1px; }
+.sb-sub { font-size: 12px; opacity: .9; font-weight: 500; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sb-chev { position: absolute; right: 16px; bottom: 12px; opacity: .7; font-size: 12px; }
 
 /* XP-balkje onderin de statusbalk (gamification) */
@@ -105,7 +105,7 @@ html, body {
 
 /* Status-thema's (achtergrond van de balk) */
 .t-green   { background: linear-gradient(135deg, #56a85e, #3f7d45); }
-.t-alert   { background: linear-gradient(135deg, #56a85e, #3f7d45); }
+.t-alert   { background: linear-gradient(135deg, #eab24a, #cf8a1e); }  /* bijna-blauw = amber waarschuwing */
 .t-blue    { background: linear-gradient(135deg, #5b86c4, #3d5d93); }
 .t-sunrise { background: linear-gradient(135deg, #ff9d5c, #ff7e51); }
 .t-purple  { background: linear-gradient(135deg, #9a78dd, #6f51b0); }
@@ -532,6 +532,7 @@ html, body {
 
 /* Weekend-snelknoppen (4 vaste diensten) */
 .wknd-head { font-size: 12.5px; font-weight: 800; color: var(--green-dark); margin: 12px 0 8px; }
+.wknd-tip { font-size: 12.5px; font-weight: 700; color: var(--green-dark); margin: 12px 0 8px; }
 .weekend-quick { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 12px 0 12px; }
 .lqbtn {
   cursor: pointer; border: 1.5px solid var(--line); background: #fff; color: var(--ink);
