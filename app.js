@@ -763,9 +763,6 @@ function renderEditor() {
 
   const el = document.getElementById('editor');
   el.innerHTML = `
-    <div class="ed-top">
-      <div class="ed-title">Beschikbaarheid</div>
-    </div>
     <div class="ed-body">
       <div class="wkpills">${pillen}</div>
 
