@@ -438,7 +438,7 @@ const ROOSTER = {
     { tijd: '16:30', uit: 'Sluit', naam: 'Phil Groenewoud', fn: 'LG', kl: 'blue', ic: '' },
     { tijd: '08:00', uit: 'Sluit', naam: 'Teije van Schaik', fn: 'Kelner', kl: 'green', ic: '💪🕺' },
     { tijd: '11:00', uit: '17:00', naam: 'Pien Duijndam', fn: 'Kelner', kl: 'green', ic: '' },
-    { tijd: '12:00', uit: 'Sluit', naam: 'Lisa Hellemans', fn: 'Kelner', kl: 'blue', ic: '🔴' },
+    { tijd: '12:00', uit: 'Sluit', naam: 'Lisa Hellemans', fn: 'Kelner', kl: 'blue', ic: '' },
     { tijd: '12:30', uit: 'Sluit', naam: 'Dominique vd Burg', fn: 'Kelner', kl: 'green', ic: '' },
     { tijd: '13:00', uit: 'Sluit', naam: 'Chya Saleh', fn: 'Kelner', kl: 'green', ic: '💪🕺' },
     { tijd: '17:00', uit: 'Sluit', naam: 'Milou Kaspers', fn: 'Kelner', kl: 'green', ic: '🌱' },
@@ -936,7 +936,8 @@ function viewRooster() {
     <div class="roster-row">
       <div class="time"><b>${r.tijd}</b><span>${r.uit}</span></div>
       <div class="ava">${r.naam.split(' ')[0][0]}</div>
-      <div class="nm"><b>${r.naam}</b><div class="fn">${r.fn}</div></div>
+      <div class="nm"><b class="${r.kl}">${r.naam}</b><div class="fn">${r.fn}</div></div>
+      <div class="ic">${r.ic}</div>
     </div>`).join('');
 
   return `${head}
