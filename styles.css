@@ -435,8 +435,9 @@ html, body {
 #tg-grid.tg {
   display: grid; grid-template-columns: 26px repeat(7, 1fr); gap: 3px;
   user-select: none; -webkit-user-select: none; margin: 2px 0 4px;
-  touch-action: pan-y;  /* verticaal scrollen mag; een tik zet één uur aan/uit */
+  touch-action: pan-y;  /* scrollen via tijdkolom/dagkoppen mag */
 }
+#tg-grid.tg .tg-cell { touch-action: none; }  /* op een cel = slepen/tekenen (geen scroll) */
 .tg-day { position: relative; text-align: center; font-size: 11px; line-height: 1.15; padding-bottom: 3px; }
 .tg-day .dn { font-weight: 800; display: block; }
 .tg-day .dd { color: var(--muted); font-size: 9px; display: block; }

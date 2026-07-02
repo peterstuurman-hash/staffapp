@@ -128,25 +128,34 @@ window.Cal = (function () {
       });
     }
 
-    // Tik = dat ene uur aan/uit. Een veeg (>10px) = scrollen → geen toggle.
-    let down = null; // { key, h, x, y }
+    // Slepen op de vakjes = uren aan/uit vegen. Scrollen via de tijdkolom/dagkoppen (touch-action).
+    let drag = null; // { dayKey, mode:'add'|'del' }
+    function cellAt(x, y) { const node = document.elementFromPoint(x, y); return node && node.closest ? node.closest('.tg-cell') : null; }
+    function applyHour(key, h) {
+      const s = slotsOf(days[key]);
+      if (drag.mode === 'add') s.add(h); else s.delete(h);
+      syncDay(days[key]);
+    }
     container.addEventListener('pointerdown', (e) => {
       const cell = e.target.closest && e.target.closest('.tg-cell');
       if (!cell) return;
-      down = { key: cell.dataset.day, h: +cell.dataset.hour, x: e.clientX, y: e.clientY };
+      e.preventDefault();
+      const key = cell.dataset.day, h = +cell.dataset.hour;
+      if (days[key].off) { days[key].off = false; days[key]._slots = new Set(); } // 'vrij' eraf
+      const has = slotsOf(days[key]).has(h);
+      drag = { dayKey: key, mode: has ? 'del' : 'add' }; // op groen beginnen = wissen, op leeg = zetten
+      applyHour(key, h);
+      try { container.setPointerCapture(e.pointerId); } catch (_) {}
+      paint();
     });
     container.addEventListener('pointermove', (e) => {
-      if (down && (Math.abs(e.clientX - down.x) > 10 || Math.abs(e.clientY - down.y) > 10)) down = null; // werd een veeg/scroll
+      if (!drag) return;
+      const cell = cellAt(e.clientX, e.clientY);
+      if (cell && cell.dataset.day === drag.dayKey) { applyHour(drag.dayKey, +cell.dataset.hour); paint(); }
     });
-    container.addEventListener('pointerup', () => {
-      if (!down) return;
-      const key = down.key, h = down.h; down = null;
-      if (days[key].off) { days[key].off = false; days[key]._slots = new Set(); } // 'vrij' eraf
-      const s = slotsOf(days[key]);
-      if (s.has(h)) s.delete(h); else s.add(h);
-      syncDay(days[key]); paint(); onChange();
-    });
-    container.addEventListener('pointercancel', () => { down = null; });
+    function commit() { if (!drag) return; drag = null; paint(); onChange(); }
+    container.addEventListener('pointerup', commit);
+    container.addEventListener('pointercancel', commit);
 
     const allSlots = () => new Set(HOURS);
     container.addEventListener('click', (e) => {
